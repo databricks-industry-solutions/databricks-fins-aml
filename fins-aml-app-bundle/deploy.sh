@@ -120,11 +120,61 @@ databricks workspace import --profile "$PROFILE" \
 rm -f "$TMPFILE"
 echo "  app.yaml resolved and uploaded."
 
+# Step 3.5: Ensure the app compute is running. Newly created apps come up
+# STOPPED, and `databricks apps deploy` requires a RUNNING app — so start it
+# and wait before deploying code.
+echo ""
+echo "Step 3.5: Ensuring the app is running..."
+APP_STATE=$(databricks apps get fins-aml-platform --profile "$PROFILE" -o json 2>/dev/null \
+    | python3 -c "import sys,json;print((json.load(sys.stdin).get('compute_status') or {}).get('state',''))" 2>/dev/null || echo "")
+if [ "$APP_STATE" = "ACTIVE" ] || [ "$APP_STATE" = "RUNNING" ]; then
+    echo "  App already running."
+else
+    echo "  App compute is '${APP_STATE:-unknown}' — starting (can take a few minutes)..."
+    databricks apps start fins-aml-platform --profile "$PROFILE"
+fi
+
 # Step 4: Deploy the app
 echo ""
 echo "Step 4: Deploying the app..."
 databricks apps deploy fins-aml-platform --profile "$PROFILE" \
     --source-code-path "$REMOTE_PATH"
+
+# Step 5: Grant the app's service principal read access to the data, so its
+# queries hit the real catalog/schema instead of falling back to demo data.
+# Requires the deployer to own (or have CAN_MANAGE on) the target catalog/schema.
+echo ""
+echo "Step 5: Granting app service principal read access to data..."
+APP_SP=$(databricks apps get fins-aml-platform --profile "$PROFILE" -o json 2>/dev/null \
+    | python3 -c "import sys,json;print(json.load(sys.stdin).get('service_principal_client_id',''))" 2>/dev/null || echo "")
+GRANT_VARS=$(python3 - "$TARGET" <<'PYV'
+import sys, os, yaml
+t = sys.argv[1]
+cfg = yaml.safe_load(open("databricks.yml"))
+loc = yaml.safe_load(open("databricks.local.yml")) if os.path.exists("databricks.local.yml") else {}
+defaults = {k: v.get("default") for k, v in cfg.get("variables", {}).items() if isinstance(v, dict) and "default" in v}
+pub = cfg.get("targets", {}).get(t, {}).get("variables", {}) or {}
+lt = loc.get("targets", {}).get(t, {}).get("variables", {}) or {}
+r = {**defaults, **pub, **lt}
+print(r.get("catalog", ""))
+print(r.get("schema", ""))
+PYV
+)
+CATALOG=$(printf '%s\n' "$GRANT_VARS" | sed -n 1p)
+SCHEMA=$(printf '%s\n' "$GRANT_VARS" | sed -n 2p)
+if [ -n "$APP_SP" ] && [ -n "$CATALOG" ] && [ -n "$SCHEMA" ]; then
+    echo "  SP=$APP_SP  catalog=$CATALOG  schema=$SCHEMA"
+    databricks grants update catalog "$CATALOG" --profile "$PROFILE" \
+        --json "{\"changes\":[{\"principal\":\"$APP_SP\",\"add\":[\"USE_CATALOG\"]}]}" >/dev/null \
+        || echo "  WARN: USE_CATALOG grant failed — need ownership/CAN_MANAGE on catalog $CATALOG."
+    databricks grants update schema "$CATALOG.$SCHEMA" --profile "$PROFILE" \
+        --json "{\"changes\":[{\"principal\":\"$APP_SP\",\"add\":[\"USE_SCHEMA\",\"SELECT\",\"READ_VOLUME\"]}]}" >/dev/null \
+        || echo "  WARN: schema grants failed — need ownership/CAN_MANAGE on $CATALOG.$SCHEMA."
+    echo "  Grants applied (USE_CATALOG / USE_SCHEMA / SELECT / READ_VOLUME)."
+else
+    echo "  WARN: could not resolve SP / catalog / schema; skipping auto-grant."
+    echo "        Grant the app SP read access manually if the app shows demo data."
+fi
 
 echo ""
 echo "=== Deployment complete! ==="

@@ -21,11 +21,11 @@ variables:
     description: "Email for job failure notifications"
     default: ""
   youcom_secret_scope:
-    description: "Databricks secret scope holding the You.com MCP bearer token. Leave empty to skip MCP setup."
-    default: ""
+    description: "Databricks secret scope holding the You.com MCP bearer token. Leave as default ('none') to skip MCP setup; set to your scope to enable it."
+    default: "none"
   youcom_secret_key:
-    description: "Databricks secret key for the You.com MCP bearer token. Leave empty to skip MCP setup."
-    default: ""
+    description: "Databricks secret key for the You.com MCP bearer token. Leave as default ('none') to skip MCP setup; set to your key to enable it."
+    default: "none"
 
 targets:
   dev:
@@ -129,8 +129,8 @@ resources:
               - "${var.youcom_secret_key}"
               - "--apply"
           environment_key: serverless_environment
-          # KA indexing can take 10-20 min per KA; allow 1hr total
-          timeout_seconds: 3600
+          # KA indexing can take 10-20 min per KA; allow 3hr total
+          timeout_seconds: 10800
 
       # Define serverless environment
       environments:

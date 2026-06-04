@@ -2,7 +2,7 @@
 
 Reads JSON files under ./agents/ (produced by export_agents.py) and
 idempotently creates the You.com MCP connection, 3 Knowledge Assistants,
-2 Genie Spaces, and the Multi-Agent Supervisor that ties them together.
+2 Genie Spaces, and the Supervisor Agent that ties them together.
 
 Designed to run AFTER the data bundle has populated:
   - The tables under <catalog>.<schema>.* (cases, customers, alerts, ...)
@@ -46,7 +46,7 @@ except NameError:
     AGENTS_DIR = Path.cwd() / "agents"
 SOURCE_CATALOG = "fins_aml"
 SOURCE_SCHEMA = "data_generation"
-KA_INDEX_TIMEOUT_SEC = 30 * 60
+KA_INDEX_TIMEOUT_SEC = 60 * 60
 KA_INDEX_POLL_SEC = 15
 
 
@@ -252,7 +252,7 @@ def ensure_mas(
 
     existing = find_tile_by_name(w, name, "MAS")
     if existing:
-        log(f"  [skip] MAS '{name}' already exists (tile_id={existing['tile_id']})")
+        log(f"  [skip] Supervisor Agent '{name}' already exists (tile_id={existing['tile_id']})")
         return existing["tile_id"]
 
     agents_payload = []
@@ -285,7 +285,7 @@ def ensure_mas(
         "instructions": tile.get("instructions", ""),
         "agents": agents_payload,
     }
-    log(f"  [create] MAS '{name}' wiring {len(agents_payload)} sub-agents")
+    log(f"  [create] Supervisor Agent '{name}' wiring {len(agents_payload)} sub-agents")
     for a in agents_payload:
         log(f"           - {a['name']}")
     if not apply:
@@ -309,7 +309,7 @@ def main() -> None:
     parser.add_argument("--warehouse-id", required=True, help="Warehouse for Genie spaces")
     parser.add_argument("--mcp-secret-scope", help="Secret scope for You.com bearer token (omit + --skip-mcp to skip)")
     parser.add_argument("--mcp-secret-key", help="Secret key for You.com bearer token (omit + --skip-mcp to skip)")
-    parser.add_argument("--skip-mcp", action="store_true", help="Skip You.com MCP setup; MAS will be created without it")
+    parser.add_argument("--skip-mcp", action="store_true", help="Skip You.com MCP setup; Supervisor Agent will be created without it")
     parser.add_argument("--apply", action="store_true", help="Actually create resources (default: dry-run)")
     args = parser.parse_args()
 
@@ -318,8 +318,14 @@ def main() -> None:
     if not args.apply:
         log("=== DRY RUN === (pass --apply to actually create resources)\n")
 
-    # Auto-skip MCP if secret args are empty (lets bundle pass empty strings)
-    if not (args.mcp_secret_scope and args.mcp_secret_key):
+    # Auto-skip MCP when the secret scope/key are unset. The bundle passes a
+    # non-empty sentinel ("none") by default rather than an empty string, because
+    # DAB serializes an empty-string job parameter as null and Terraform rejects
+    # it. Treat empty OR the sentinel as "no MCP"; a real scope/key enables it.
+    _MCP_SKIP_VALUES = {"", "none", "skip"}
+    _scope = (args.mcp_secret_scope or "").strip().lower()
+    _key = (args.mcp_secret_key or "").strip().lower()
+    if _scope in _MCP_SKIP_VALUES or _key in _MCP_SKIP_VALUES:
         args.skip_mcp = True
 
     bearer_token = ""
@@ -330,7 +336,7 @@ def main() -> None:
         bearer_token = base64.b64decode(raw).decode()
         log(f"  got token ({len(bearer_token)} chars)\n")
     elif args.skip_mcp:
-        log("(--skip-mcp: skipping You.com MCP setup; MAS will exclude it)\n")
+        log("(--skip-mcp: skipping You.com MCP setup; Supervisor Agent will exclude it)\n")
     else:
         log(f"(skipping secret read in dry-run; would read {args.mcp_secret_scope}/{args.mcp_secret_key})\n")
 
@@ -357,10 +363,10 @@ def main() -> None:
         space_id = ensure_genie_space(w, genie_spec, args.catalog, args.schema, args.warehouse_id, args.apply)
         sub_agent_ids[f"genie:{genie_spec['name']}"] = space_id
 
-    log("\nStep 4: Multi-Agent Supervisor")
+    log("\nStep 4: Supervisor Agent")
     mas_spec = json.loads((AGENTS_DIR / "mas.json").read_text())
     if args.skip_mcp:
-        # Drop external-mcp-server agents from the MAS spec when MCP is skipped
+        # Drop external-mcp-server agents from the Supervisor Agent spec when MCP is skipped
         mas_spec["multi_agent_supervisor"]["agents"] = [
             a for a in mas_spec["multi_agent_supervisor"]["agents"]
             if a.get("agent_type") != "external-mcp-server"
@@ -373,4 +379,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # NOTE: don't wrap in sys.exit(). main() returns None, so sys.exit(None)
+    # raises SystemExit, which the serverless Python task runner (which execs
+    # this file inside an IPython kernel) reports as a failure even on success.
+    # main() raises on real errors, which propagate and fail the task correctly.
+    main()

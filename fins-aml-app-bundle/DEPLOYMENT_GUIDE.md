@@ -31,9 +31,12 @@ Before deploying, gather these values from your target workspace:
 | **Workspace ID** | URL `?o=` parameter, or Workspace Settings |
 | **SQL Warehouse ID** | SQL Warehouses page -> copy ID |
 | **Dashboard ID** | Open dashboard -> ID in URL (`/dashboards/<id>`), or from data bundle output |
-| **MAS endpoint URL** | Serving Endpoints -> your MAS endpoint -> full invocation URL |
+| **Supervisor Agent endpoint URL** | Serving Endpoints -> your Supervisor Agent endpoint -> full invocation URL |
+| **Supervisor Agent endpoint name** | Serving Endpoints -> your Supervisor Agent endpoint -> the endpoint name (e.g. `mas-xxxxxxxx-endpoint`); used to bind the app's serving-endpoint resource |
 | **Unity Catalog / Schema** | The catalog and schema where AML tables live (must match data bundle) |
 | **Databricks CLI profile** | `~/.databrickscfg` profile name for the target workspace |
+
+**Deployer permissions:** whoever runs `deploy.sh` must be able to **grant** on the target catalog/schema — i.e. own them or hold `CAN_MANAGE` — because the script grants the app's service principal read access automatically (see Step 4). If you created the catalog/schema via the data bundle, you already own them.
 
 ---
 
@@ -44,7 +47,7 @@ Before deploying, gather these values from your target workspace:
 The app uses **OAuth M2M (service principal)** for all Databricks API calls:
 
 - **SQL Warehouse queries** -- Uses `databricks-sdk` credential provider (auto-refreshing tokens)
-- **Serving endpoint calls** (MAS agent, SAR generation) -- Uses OAuth token via `config.get_oauth_token()`
+- **Serving endpoint calls** (Supervisor Agent, SAR generation) -- Uses OAuth token via `config.get_oauth_token()`
 - **Dashboard embedding** -- Uses service principal scoped token flow
 
 The Databricks Apps runtime automatically injects `DATABRICKS_CLIENT_ID` and `DATABRICKS_CLIENT_SECRET` for the app's service principal. **No PAT token is required.**
@@ -86,10 +89,11 @@ targets:
       catalog: "fins_aml"
       schema: "data_generation"
       mas_endpoint_url: "https://my-workspace.cloud.databricks.com/serving-endpoints/my-mas/invocations"
+      mas_endpoint_name: "my-mas"
       dashboard_id: "your-dashboard-id"
 ```
 
-Variables with defaults (`catalog`, `schema`, `mas_endpoint_url`, `dashboard_id`) can be omitted if the defaults are acceptable.
+Variables with defaults (`catalog`, `schema`, `mas_endpoint_url`, `dashboard_id`) can be omitted if the defaults are acceptable. To keep workspace-specific values out of the repo, you can put the target block in a gitignored `databricks.local.yml` instead — it's picked up automatically via the `include: ["*.local.yml"]` glob in `databricks.yml`.
 
 ### Step 2: Deploy using the deploy script
 
@@ -97,10 +101,12 @@ Variables with defaults (`catalog`, `schema`, `mas_endpoint_url`, `dashboard_id`
 ./deploy.sh my-new-workspace YOUR_PROFILE
 ```
 
-This script does three things in order:
-1. Validates and runs `databricks bundle deploy` (uploads code to workspace)
-2. Resolves `${var.xxx}` references in `app.yaml` using the target's variable values from `databricks.yml`, then uploads the resolved file
-3. Runs `databricks apps deploy` to start the application
+This script runs the full deploy end to end:
+1. Validates and runs `databricks bundle deploy` (uploads code, and binds the app's `sql_warehouse` + serving-endpoint resources declared in `databricks.yml`)
+2. Resolves `${var.xxx}` references in `app.yaml` using the target's variable values, then uploads the resolved file
+3. Starts the app and waits for it to be RUNNING (newly created apps come up STOPPED, and `apps deploy` requires a running app)
+4. Runs `databricks apps deploy` to deploy the code
+5. Grants the app's service principal `USE_CATALOG` / `USE_SCHEMA` / `SELECT` / `READ_VOLUME` on the target catalog/schema so its queries read real data instead of falling back to demo data
 
 **Manual alternative** (if you prefer not to use the script):
 
@@ -120,26 +126,24 @@ databricks apps deploy fins-aml-platform --profile YOUR_PROFILE \
   --source-code-path /Workspace/Users/YOUR_EMAIL/.bundle/fins-aml-platform/my-new-workspace/files
 ```
 
-### Step 3: Configure app resources
+### Step 3: App resources (automatic)
 
-After the first deploy, open the app in the Databricks UI (**Apps -> fins-aml-platform -> Resources**) and configure:
+The app's resources are declared in `databricks.yml` and bound automatically on `databricks bundle deploy` — no manual UI step required:
 
-| Resource | Type | What to set |
+| Resource | Type | Bound from |
 |---|---|---|
-| `sql_warehouse` | SQL Warehouse | Select your SQL warehouse (provides `DATABRICKS_WAREHOUSE_ID`) |
-| `serving.serving-endpoints` | Serving Endpoint | Maps to your MAS agent endpoint (grants `CAN_QUERY`) |
+| `sql_warehouse` | SQL Warehouse | `${var.warehouse_id}` (provides `DATABRICKS_WAREHOUSE_ID`) |
+| `serving.serving-endpoints` | Serving Endpoint | `${var.mas_endpoint_name}` (grants the app SP `CAN_QUERY`) |
 
 No PAT or external database secrets are needed -- the app authenticates via the auto-injected service principal, and the graph visualization uses native Databricks tables.
 
-### Step 4: Grant permissions
+> To adjust these by hand, they're under **Apps -> fins-aml-platform -> Resources** in the workspace UI.
 
-The app's service principal needs:
+### Step 4: Permissions (mostly automatic)
 
-1. **CAN USE** on the SQL warehouse
-2. **CAN QUERY** on the MAS serving endpoint
-3. **CAN RUN** on the published Lakeview dashboard (for embedding)
-4. **CAN USE** on the SQL warehouse that the dashboard queries (may be the same warehouse)
-5. **SELECT** on the Unity Catalog tables (`catalog.schema.*`)
+`deploy.sh` grants the app's service principal read access to the data automatically (script Step 5): `USE_CATALOG` on the catalog, and `USE_SCHEMA` / `SELECT` / `READ_VOLUME` on the schema. This requires the deployer to own or hold `CAN_MANAGE` on the catalog/schema (see Prerequisites). The warehouse (`CAN_USE`) and Supervisor Agent endpoint (`CAN_QUERY`) grants are handled by the resource bindings in Step 3.
+
+The one remaining **manual** grant is for the embedded dashboard: share the published Lakeview dashboard with the app's service principal (**CAN RUN**) so the Executive Overview can embed it. (The dashboard's queries run on the warehouse the SP already has `CAN_USE` on.)
 
 ---
 
@@ -163,7 +167,7 @@ If you omit optional variables (those with `default: ""`), the corresponding fea
 | `app.yaml` | App runtime config with `${var.xxx}` references | No (resolved by deploy.sh) |
 | `backend/config.py` | Python config with OAuth M2M token management | No |
 | `backend/api/databricks_graph.py` | Native Databricks graph visualization | No |
-| `backend/api/agent.py` | MAS agent chat (OAuth auth) | No |
+| `backend/api/agent.py` | Supervisor Agent chat (OAuth auth) | No |
 | `backend/api/sar.py` | SAR narrative generation (OAuth auth) | No |
 | `backend/api/auth.py` | Dashboard embedding auth flow | No |
 | `backend/services/database.py` | SQL warehouse connection (OAuth credential provider) | No |

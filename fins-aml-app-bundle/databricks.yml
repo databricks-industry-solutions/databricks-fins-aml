@@ -1,6 +1,12 @@
 bundle:
   name: fins-aml-platform
 
+# Pull in any gitignored *.local.yml (e.g. databricks.local.yml) for
+# workspace-specific targets/values that must not land in the public repo.
+# The glob matches nothing in a fresh clone, so this is safe to commit.
+include:
+  - "*.local.yml"
+
 variables:
   databricks_hostname:
     description: "Databricks workspace hostname (no https://)"
@@ -10,6 +16,9 @@ variables:
     description: "SQL warehouse ID"
   mas_endpoint_url:
     description: "MAS agent serving endpoint URL"
+    default: ""
+  mas_endpoint_name:
+    description: "MAS serving endpoint name for the app resource binding (e.g. mas-xxxxxxxx-endpoint)"
     default: ""
   dashboard_id:
     description: "Lakeview dashboard ID"
@@ -52,6 +61,7 @@ targets:
       workspace_id: "<numeric-workspace-id>"
       warehouse_id: "<sql-warehouse-id>"
       mas_endpoint_url: "https://<your-workspace>.cloud.databricks.com/serving-endpoints/<your-mas-endpoint>/invocations"
+      mas_endpoint_name: "<your-mas-endpoint>"
       dashboard_id: "<lakeview-dashboard-id>"
       # Optional: only set if USE_LAKEBASE=true
       # use_lakebase: "true"
@@ -71,3 +81,15 @@ resources:
       name: "fins-aml-platform"
       description: "AI-powered AML Investigation Platform"
       source_code_path: .
+      # Bind app resources so DATABRICKS_WAREHOUSE_ID (valueFrom: sql_warehouse)
+      # resolves and the app's service principal gets CAN_QUERY on the MAS
+      # endpoint. Removes the manual "Apps > Resources" UI step from the guide.
+      resources:
+        - name: "sql_warehouse"
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: "CAN_USE"
+        - name: "serving.serving-endpoints"
+          serving_endpoint:
+            name: ${var.mas_endpoint_name}
+            permission: "CAN_QUERY"

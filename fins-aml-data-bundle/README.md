@@ -57,7 +57,7 @@ This will:
 4. Create graph features
 5. Generate knowledge base documents (if not already present)
 6. **Provision the Agent Bricks graph** — 3 Knowledge Assistants, 2 Genie
-   Spaces, and the Multi-Agent Supervisor that the app consumes (see below).
+   Spaces, and the Supervisor Agent that the app consumes (see below).
 
 ## Agent Provisioning
 
@@ -74,11 +74,11 @@ pipeline finds existing agents by name and skips them.
 | Knowledge Assistant: `FIN-AML-media` | docs in `knowledge_base/adverse_media/` |
 | Genie Space: `AML Case360 Executive View` | tables: cases, customers, sar_filings, case_audit_log |
 | Genie Space: `AML Alert360 Executive View` | tables: alerts, accounts, customers, transactions, watchlist |
-| Multi-Agent Supervisor: `FIN-AML-mas` | wires all of the above + optional You.com MCP |
+| Supervisor Agent: `FIN-AML-mas` | wires all of the above + optional You.com MCP |
 
 ### Optional: You.com MCP web search
 
-The MAS optionally includes a 6th sub-agent for web search via the You.com
+The Supervisor Agent optionally includes a 6th sub-agent for web search via the You.com
 MCP server. The bearer token cannot be carried over from the source workspace,
 so **MCP is auto-skipped** unless you provide a Databricks secret holding your
 own You.com API key.
@@ -101,7 +101,7 @@ databricks bundle deploy --profile <your-profile-name> \
   --var="youcom_secret_key=api_key"
 ```
 
-If you skip this step the deploy succeeds, but the resulting MAS will have
+If you skip this step the deploy succeeds, but the resulting Supervisor Agent will have
 5 sub-agents (3 KAs + 2 Genies) instead of 6. You can add MCP later by
 configuring the secret and re-running the pipeline.
 
