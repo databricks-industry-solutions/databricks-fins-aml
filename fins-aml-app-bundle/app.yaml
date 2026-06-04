@@ -1,0 +1,49 @@
+name: fins-aml-platform
+display_name: "FINS AML Investigation Platform"
+description: "AI-powered Anti-Money Laundering investigation platform with executive dashboards and analyst workflows"
+
+command: [
+  "uvicorn",
+  "main:app",
+  "--host=0.0.0.0",
+  "--port=8000"
+]
+
+resources:
+  - name: sql_warehouse
+    type: sql_warehouse
+    permission: CAN_USE
+  - name: serving.serving-endpoints
+    permission: CAN_QUERY
+
+env:
+  # Resource-bound values (resolved by Databricks Apps runtime)
+  # Note: DATABRICKS_HOST, DATABRICKS_CLIENT_ID, DATABRICKS_CLIENT_SECRET
+  # are auto-injected by the Databricks Apps runtime for the app's service principal.
+  - name: 'DATABRICKS_WAREHOUSE_ID'
+    valueFrom: sql_warehouse
+
+  # Per-target values — resolved automatically from databricks.yml variables
+  - name: 'DATABRICKS_HOSTNAME'
+    value: '${var.databricks_hostname}'
+  - name: 'DATABRICKS_WORKSPACE_ID'
+    value: '${var.workspace_id}'
+  - name: 'DATABRICKS_DASHBOARD_ID'
+    value: '${var.dashboard_id}'
+  - name: 'DATABRICKS_CATALOG'
+    value: '${var.catalog}'
+  - name: 'DATABRICKS_SCHEMA'
+    value: '${var.schema}'
+  - name: 'MAS_ENDPOINT_URL'
+    value: '${var.mas_endpoint_url}'
+
+  # Lakebase (optional Postgres-backed graph reads).
+  # Leave USE_LAKEBASE=false to keep the existing SQL-warehouse path.
+  - name: 'USE_LAKEBASE'
+    value: '${var.use_lakebase}'
+  - name: 'LAKEBASE_HOST'
+    value: '${var.lakebase_host}'
+  - name: 'LAKEBASE_DATABASE'
+    value: '${var.lakebase_database}'
+  - name: 'LAKEBASE_ENDPOINT_PATH'
+    value: '${var.lakebase_endpoint_path}'

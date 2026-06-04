@@ -1,0 +1,41 @@
+{
+  "_source_endpoint": "ka-ff1f8a0c-endpoint",
+  "_source_tile_id": "ff1f8a0c-c29f-4e35-99fc-6eae8f194785",
+  "description": "Answer questions about case details/findings, status, customer correspondence, and case disposition",
+  "instructions": "",
+  "knowledge_sources": [
+    {
+      "description": "these are notes from previous enhanced due diligence about customers",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/edd_memos/"
+      },
+      "name": "edd_memos",
+      "type": "files"
+    },
+    {
+      "description": "these are past correspondence documented from customers with our fraud specialists about cases",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/correspondence/"
+      },
+      "name": "cust_correspondence",
+      "type": "files"
+    },
+    {
+      "description": "these are documents from past SAR filings that we have on file",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/sar_narratives/"
+      },
+      "name": "sar_narratives",
+      "type": "files"
+    },
+    {
+      "description": "these are case disposition, notes, progress, resolution, recommendations from fraud specialists about a specific customer and file",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/case_notes/"
+      },
+      "name": "case_notes",
+      "type": "files"
+    }
+  ],
+  "name": "FIN-AML-case-details"
+}

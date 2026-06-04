@@ -1,0 +1,73 @@
+bundle:
+  name: fins-aml-platform
+
+variables:
+  databricks_hostname:
+    description: "Databricks workspace hostname (no https://)"
+  workspace_id:
+    description: "Databricks workspace ID (numeric)"
+  warehouse_id:
+    description: "SQL warehouse ID"
+  mas_endpoint_url:
+    description: "MAS agent serving endpoint URL"
+    default: ""
+  dashboard_id:
+    description: "Lakeview dashboard ID"
+    default: ""
+  catalog:
+    description: "Unity Catalog name"
+    default: "fins_aml"
+  schema:
+    description: "Schema name"
+    default: "data_generation"
+  use_lakebase:
+    description: "Toggle Postgres-backed graph reads (true/false). Default false keeps SQL-warehouse path."
+    default: "false"
+  lakebase_host:
+    description: "Lakebase endpoint host (e.g. ep-xxx.database.us-east-1.cloud.databricks.com)"
+    default: ""
+  lakebase_database:
+    description: "Lakebase database name"
+    default: ""
+  lakebase_endpoint_path:
+    description: "Lakebase endpoint resource path (projects/<id>/branches/<id>/endpoints/<id>)"
+    default: ""
+
+targets:
+  # ---------------------------------------------------------------------------
+  # Configure your own target by copying the example block below. The values
+  # all come from your workspace: workspace_id is the numeric ID in the URL,
+  # warehouse_id is from `databricks warehouses list`, mas_endpoint_url is the
+  # invocations URL of the MAS endpoint created by the data bundle, and the
+  # lakebase_* values come from `databricks postgres list-projects` (only
+  # needed if you set USE_LAKEBASE=true).
+  # ---------------------------------------------------------------------------
+  example:
+    mode: development
+    default: true
+    workspace:
+      host: https://<your-workspace>.cloud.databricks.com
+    variables:
+      databricks_hostname: "<your-workspace>.cloud.databricks.com"
+      workspace_id: "<numeric-workspace-id>"
+      warehouse_id: "<sql-warehouse-id>"
+      mas_endpoint_url: "https://<your-workspace>.cloud.databricks.com/serving-endpoints/<your-mas-endpoint>/invocations"
+      dashboard_id: "<lakeview-dashboard-id>"
+      # Optional: only set if USE_LAKEBASE=true
+      # use_lakebase: "true"
+      # lakebase_host: "ep-xxx.database.<region>.cloud.databricks.com"
+      # lakebase_database: "<database-name>"
+      # lakebase_endpoint_path: "projects/<id>/branches/production/endpoints/primary"
+
+# Additional, environment-specific targets can live in
+# `databricks.local.yml` (gitignored). deploy.sh merges variable values
+# from that file when resolving app.yaml. Use this pattern to keep
+# workspace IDs, endpoint hosts, and other deployment-specific values
+# out of the public repo.
+
+resources:
+  apps:
+    fins-aml-platform:
+      name: "fins-aml-platform"
+      description: "AI-powered AML Investigation Platform"
+      source_code_path: .

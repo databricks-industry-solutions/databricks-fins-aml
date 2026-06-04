@@ -1,0 +1,72 @@
+{
+  "multi_agent_supervisor": {
+    "agents": [
+      {
+        "agent_type": "knowledge-assistant",
+        "description": "Answer questions about case details/findings, status, customer correspondence, and case disposition",
+        "name": "FIN-AML-case-details",
+        "serving_endpoint": {
+          "name": "ka-ff1f8a0c-endpoint"
+        }
+      },
+      {
+        "agent_type": "knowledge-assistant",
+        "description": "Answer questions about regulations and policies from regulators",
+        "name": "FIN-AML-policies",
+        "serving_endpoint": {
+          "name": "ka-53fbbb04-endpoint"
+        }
+      },
+      {
+        "agent_type": "knowledge-assistant",
+        "description": "Answer questions about the contents of the adverse media reported",
+        "name": "FIN-AML-media",
+        "serving_endpoint": {
+          "name": "ka-e2ca2453-endpoint"
+        }
+      },
+      {
+        "agent_type": "genie-space",
+        "description": "Executive view for AML case management - cases, customers, SAR filings, and audit logs. Migrated from e2-demo-west.",
+        "genie_space": {
+          "id": "01f138769784181b9d67101dc76db3e2"
+        },
+        "name": "agent-aml-case360-executive-view"
+      },
+      {
+        "agent_type": "genie-space",
+        "description": "Executive view for AML alert management - alerts, accounts, cases, customers, transactions, and watchlist screening. Migrated from e2-demo-west.",
+        "genie_space": {
+          "id": "01f138769b621c3396078fa205bd8292"
+        },
+        "name": "agent-aml-alert360-executive-view"
+      },
+      {
+        "agent_type": "external-mcp-server",
+        "description": "it will search the web for any information it is asked during the AML or people investigations",
+        "external_mcp_server": {
+          "connection_name": "fins-aml-you-com"
+        },
+        "name": "mcp-fins-aml-you-com"
+      }
+    ],
+    "status": {
+      "endpoint_status": "ONLINE"
+    },
+    "tile": {
+      "acl_enabled": true,
+      "creation_timestamp_ms": 1776255401512,
+      "creator": "mimi.park@databricks.com",
+      "creator_display_name": "Mimi Park",
+      "description": "Answer questions about case details/findings, status, customer correspondence, and case disposition",
+      "evaluation_run_exists": false,
+      "instructions": "You are an AML case review assistant. Help investigators analyze case details, findings, customer correspondence, and case disposition. Provide thorough, accurate responses about regulatory compliance and suspicious activity.",
+      "last_updated_timestamp_ms": 1776952744065,
+      "mlflow_experiment_id": "1346924450448751",
+      "name": "FIN-AML-mas",
+      "serving_endpoint_name": "mas-c499756e-endpoint",
+      "tile_id": "c499756e-7d86-47bb-ab19-59974df588bf",
+      "tile_type": "MAS"
+    }
+  }
+}

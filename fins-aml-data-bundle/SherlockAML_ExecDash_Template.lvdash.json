@@ -1,0 +1,2273 @@
+{
+  "datasets": [
+    {
+      "name": "fcaf3fed",
+      "displayName": "cases",
+      "queryLines": [
+        "SELECT * FROM fins_aml.data_generation.cases"
+      ]
+    },
+    {
+      "name": "53e02597",
+      "displayName": "alerts",
+      "queryLines": [
+        "SELECT *,\n",
+        "CAST(created_date AS DATE) AS created_date_day\n",
+        " FROM fins_aml.data_generation.alerts"
+      ]
+    },
+    {
+      "name": "e369faee",
+      "displayName": "case_audit_log",
+      "queryLines": [
+        "SELECT * FROM fins_aml.data_generation.case_audit_log"
+      ]
+    },
+    {
+      "name": "64298578",
+      "displayName": "customers",
+      "queryLines": [
+        "SELECT * FROM fins_aml.data_generation.customers"
+      ]
+    },
+    {
+      "name": "0d976925",
+      "displayName": "accounts",
+      "queryLines": [
+        "SELECT * FROM fins_aml.data_generation.accounts"
+      ]
+    },
+    {
+      "name": "a0d8b62e",
+      "displayName": "Transaction_Amount_KPI",
+      "queryLines": [
+        "-- Dataset name: kpi_txn_amount\n",
+        "WITH weekly AS (\n",
+        "  SELECT DATE_TRUNC('WEEK', created_date) AS wk,\n",
+        "         SUM(total_amount) AS v\n",
+        "  FROM fins_aml.data_generation.alerts\n",
+        "  WHERE alert_status IN ('assigned','escalated','in_progress','new')\n",
+        "  GROUP BY 1\n",
+        "),\n",
+        "ranked AS (\n",
+        "  SELECT wk, v,\n",
+        "         ROW_NUMBER() OVER (ORDER BY wk DESC) AS rn\n",
+        "  FROM weekly\n",
+        ")\n",
+        "SELECT\n",
+        "  MAX(CASE WHEN rn = 1 THEN v END) AS current_value,\n",
+        "  MAX(CASE WHEN rn = 2 THEN v END) AS previous_value\n",
+        "FROM ranked;"
+      ]
+    },
+    {
+      "name": "f89a60dc",
+      "displayName": "Case_Investigation_Volume_KPI",
+      "queryLines": [
+        "-- Dataset: kpi_case_volume\n",
+        "WITH weekly AS (\n",
+        "  SELECT DATE_TRUNC('WEEK', created_date) AS wk,\n",
+        "         COUNT(DISTINCT alert_id) AS v\n",
+        "  FROM fins_aml.data_generation.alerts\n",
+        "  WHERE alert_status IN ('assigned','escalated','in_progress','new')\n",
+        "  GROUP BY 1\n",
+        "),\n",
+        "ranked AS (\n",
+        "  SELECT wk, v, ROW_NUMBER() OVER (ORDER BY wk DESC) AS rn\n",
+        "  FROM weekly\n",
+        ")\n",
+        "SELECT\n",
+        "  MAX(CASE WHEN rn = 1 THEN v END) AS current_value,\n",
+        "  MAX(CASE WHEN rn = 2 THEN v END) AS previous_value\n",
+        "FROM ranked;"
+      ]
+    },
+    {
+      "name": "bbea6181",
+      "displayName": "False_Positive_Rate_KPI",
+      "queryLines": [
+        "-- Dataset: kpi_false_positive_rate\n",
+        "WITH weekly AS (\n",
+        "  SELECT\n",
+        "    DATE_TRUNC('WEEK', resolution_date) AS wk,\n",
+        "    SUM(CASE WHEN resolution = 'False Positive' THEN 1 ELSE 0 END) AS fp_cnt,\n",
+        "    SUM(CASE WHEN resolution IS NOT NULL THEN 1 ELSE 0 END)         AS resolved_cnt\n",
+        "  FROM fins_aml.data_generation.alerts\n",
+        "  GROUP BY 1\n",
+        "),\n",
+        "rates AS (\n",
+        "  SELECT\n",
+        "    wk,\n",
+        "    TRY_DIVIDE(fp_cnt, NULLIF(resolved_cnt, 0)) AS rate\n",
+        "  FROM weekly\n",
+        "),\n",
+        "ranked AS (\n",
+        "  SELECT wk, rate, ROW_NUMBER() OVER (ORDER BY wk DESC) AS rn\n",
+        "  FROM rates\n",
+        ")\n",
+        "SELECT\n",
+        "  MAX(CASE WHEN rn = 1 THEN rate END) AS current_value,\n",
+        "  MAX(CASE WHEN rn = 2 THEN rate END) AS previous_value\n",
+        "FROM ranked;"
+      ]
+    },
+    {
+      "name": "c6065fd9",
+      "displayName": "Upcoming_Deadlines_KPI",
+      "queryLines": [
+        "-- Dataset: kpi_upcoming_deadlines\n",
+        "WITH win AS (\n",
+        "  SELECT DATE_TRUNC('WEEK', CURRENT_DATE) AS curr_start\n",
+        "),\n",
+        "agg AS (\n",
+        "  SELECT\n",
+        "    COUNT(DISTINCT CASE\n",
+        "      WHEN due_date >= curr_start\n",
+        "       AND due_date <  curr_start + INTERVAL 7 DAYS\n",
+        "       AND resolution IS NULL\n",
+        "    THEN alert_id END) AS current_value,\n",
+        "    COUNT(DISTINCT CASE\n",
+        "      WHEN due_date >= curr_start - INTERVAL 7 DAYS\n",
+        "       AND due_date <  curr_start\n",
+        "       AND resolution IS NULL\n",
+        "    THEN alert_id END) AS previous_value\n",
+        "  FROM fins_aml.data_generation.alerts\n",
+        "  CROSS JOIN win\n",
+        ")\n",
+        "SELECT current_value, previous_value\n",
+        "FROM agg;"
+      ]
+    },
+    {
+      "name": "c2ae409e",
+      "displayName": "Avg_Investigation_Hrs_KPI",
+      "queryLines": [
+        "-- Dataset: kpi_avg_investigation_hours\n",
+        "WITH weekly AS (\n",
+        "  SELECT\n",
+        "    DATE_TRUNC('WEEK', close_date) AS wk,\n",
+        "    AVG(investigation_time_hours)  AS v\n",
+        "  FROM fins_aml.data_generation.cases\n",
+        "  WHERE close_date IS NOT NULL\n",
+        "    AND investigation_time_hours IS NOT NULL\n",
+        "  GROUP BY 1\n",
+        "),\n",
+        "ranked AS (\n",
+        "  SELECT wk, v, ROW_NUMBER() OVER (ORDER BY wk DESC) AS rn\n",
+        "  FROM weekly\n",
+        ")\n",
+        "SELECT\n",
+        "  MAX(CASE WHEN rn = 1 THEN v END) AS current_value,\n",
+        "  MAX(CASE WHEN rn = 2 THEN v END) AS previous_value\n",
+        "FROM ranked;"
+      ]
+    },
+    {
+      "name": "6b6f4386",
+      "displayName": "Past_Due_Alerts_KPI",
+      "queryLines": [
+        "-- Dataset: kpi_past_due_alerts\n",
+        "WITH win AS (\n",
+        "  SELECT DATE_TRUNC('WEEK', CURRENT_DATE) AS curr_start\n",
+        "),\n",
+        "agg AS (\n",
+        "  SELECT\n",
+        "    -- unresolved alerts past due as of start of this week\n",
+        "    COUNT(DISTINCT CASE\n",
+        "      WHEN due_date < curr_start\n",
+        "       AND resolution IS NULL\n",
+        "    THEN alert_id END) AS current_value,\n",
+        "    -- unresolved alerts past due as of start of last week\n",
+        "    COUNT(DISTINCT CASE\n",
+        "      WHEN due_date < curr_start - INTERVAL 7 DAYS\n",
+        "       AND resolution IS NULL\n",
+        "    THEN alert_id END) AS previous_value\n",
+        "  FROM fins_aml.data_generation.alerts\n",
+        "  CROSS JOIN win\n",
+        ")\n",
+        "SELECT current_value, previous_value\n",
+        "FROM agg;"
+      ]
+    },
+    {
+      "name": "5a7750e3",
+      "displayName": "Financial Case Type Classification Summary",
+      "queryLines": [
+        "-- Dataset: inv_time_by_team_case_type\n",
+        "SELECT\n",
+        "  team_name,\n",
+        "  CASE\n",
+        "    WHEN case_type = 'bene'  THEN 'Beneficiary Mismatch'\n",
+        "    WHEN case_type = 'struct' THEN 'Cash Structuring Detection'\n",
+        "    WHEN case_type = 'dorm'  THEN 'Dormant Account Reactivation'\n",
+        "    WHEN case_type = 'geo'   THEN 'High-Risk Geography Transfer'\n",
+        "    WHEN case_type = 'pep'   THEN 'PEP/Sanctions Alert'\n",
+        "    WHEN case_type = 'rapid' THEN 'Rapid Fund Movement'\n",
+        "    WHEN case_type = 'rel'   THEN 'Related Account Movement'\n",
+        "    WHEN case_type = 'round' THEN 'Round Dollar Pattern'\n",
+        "    WHEN case_type = '3pty'  THEN 'Third-Party Deposit Pattern'\n",
+        "    ELSE COALESCE(case_type, '(unknown)')\n",
+        "  END AS case_type_full,\n",
+        "  AVG(investigation_time_hours) AS avg_investigation_time_hours\n",
+        "FROM fins_aml.data_generation.cases\n",
+        "WHERE investigation_time_hours IS NOT NULL\n",
+        "GROUP BY team_name, case_type_full\n",
+        "ORDER BY team_name, case_type_full;"
+      ]
+    },
+    {
+      "name": "8b55ffeb",
+      "displayName": "Case Outcomes and Average Investigation Times Summary",
+      "queryLines": [
+        "-- Dataset: cases_disposition_kpi\n",
+        "WITH normalized AS (\n",
+        "  SELECT\n",
+        "    CASE\n",
+        "      WHEN LOWER(TRIM(disposition)) IN ('no further action','nfa') THEN 'No Further Action'\n",
+        "      WHEN LOWER(TRIM(disposition)) IN ('sar filed','sar')          THEN 'SAR Filed'\n",
+        "      ELSE TRIM(disposition)\n",
+        "    END AS disposition_norm,\n",
+        "    case_id,\n",
+        "    investigation_time_hours\n",
+        "  FROM fins_aml.data_generation.cases\n",
+        "  WHERE NULLIF(TRIM(disposition), '') IS NOT NULL   -- drop NULLs and blanks\n",
+        "),\n",
+        "filtered AS (\n",
+        "  SELECT *\n",
+        "  FROM normalized\n",
+        "  WHERE disposition_norm IN ('No Further Action','SAR Filed')\n",
+        ")\n",
+        "SELECT\n",
+        "  disposition_norm AS disposition,\n",
+        "  COUNT(*)                                         AS cases,\n",
+        "  AVG(investigation_time_hours)                    AS avg_investigation_time_hours\n",
+        "FROM filtered\n",
+        "GROUP BY disposition_norm\n",
+        "ORDER BY CASE disposition_norm\n",
+        "           WHEN 'No Further Action' THEN 1\n",
+        "           WHEN 'SAR Filed'         THEN 2\n",
+        "           ELSE 99\n",
+        "         END;"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "edf6feda",
+      "displayName": "Alerts Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "de96a2d0",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    },
+                    {
+                      "name": "alert_status",
+                      "expression": "`alert_status`"
+                    },
+                    {
+                      "name": "priority",
+                      "expression": "`priority`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "heatmap",
+              "encodings": {
+                "x": {
+                  "fieldName": "alert_status",
+                  "axis": {
+                    "title": "Alert Status"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "priority",
+                  "axis": {
+                    "title": "Priority"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "low",
+                        "medium",
+                        "high",
+                        "critical"
+                      ]
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "count(alert_id)",
+                  "displayName": "Number of alerts",
+                  "scale": {
+                    "type": "quantitative",
+                    "colorRamp": {
+                      "mode": "scheme",
+                      "scheme": "reds"
+                    },
+                    "domain": {
+                      "min": 15,
+                      "max": 80
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Alerts by Priority and Status",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 16,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "flow-of-scenario-to-analyst-to-status",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "scenario_name",
+                      "expression": "`scenario_name`"
+                    },
+                    {
+                      "name": "team_name",
+                      "expression": "`team_name`"
+                    },
+                    {
+                      "name": "alert_status",
+                      "expression": "`alert_status`"
+                    },
+                    {
+                      "name": "resolution",
+                      "expression": "`resolution`"
+                    },
+                    {
+                      "name": "count(*)",
+                      "expression": "COUNT(`*`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "sankey",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(*)",
+                  "displayName": "Number of cases"
+                },
+                "stages": [
+                  {
+                    "fieldName": "scenario_name"
+                  },
+                  {
+                    "fieldName": "team_name"
+                  },
+                  {
+                    "fieldName": "alert_status"
+                  },
+                  {
+                    "fieldName": "resolution"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Case Resolution Flow",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "total-amount-related-transactions",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "daily(created_date_day)",
+                      "expression": "DATE_TRUNC(\"DAY\", `created_date_day`)"
+                    },
+                    {
+                      "name": "countdistinct(alert_id)",
+                      "expression": "COUNT(DISTINCT `alert_id`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(created_date_day)",
+                  "axis": {
+                    "title": "Date",
+                    "labelAngle": 45
+                  },
+                  "format": {
+                    "type": "date",
+                    "date": "locale-short-month"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "countdistinct(alert_id)",
+                  "displayName": "Number of Alerts",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              },
+              "frame": {
+                "title": "Daily Volume of New Alerts",
+                "showTitle": true
+              },
+              "mark": {
+                "colors": [
+                  "#88CDCD",
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 11
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 12
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 13
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 14
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 15
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 16
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 17
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 18
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 19
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 20
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 21
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 22
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "alert-scenario-name-distribution",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    },
+                    {
+                      "name": "scenario_name",
+                      "expression": "`scenario_name`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "count(alert_id)",
+                  "axis": {
+                    "title": "Number of Alerts"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "scenario_name",
+                  "axis": {
+                    "title": "Scenario"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Alerts by Scenarios",
+                "showTitle": true
+              },
+              "mark": {
+                "colors": [
+                  "#88CDCD",
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 11
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 12
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 13
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 14
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 15
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 16
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 17
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 18
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 19
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 20
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 21
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 22
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "table-of-alerts-data",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f89a60dc",
+                  "fields": [
+                    {
+                      "name": "previous_value",
+                      "expression": "`previous_value`"
+                    },
+                    {
+                      "name": "current_value",
+                      "expression": "`current_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_value",
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      },
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 14
+                        }
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "previous_value",
+                  "change": {
+                    "type": "percent"
+                  },
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Case Volume",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "average-investigation-time-in-hours",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c2ae409e",
+                  "fields": [
+                    {
+                      "name": "previous_value",
+                      "expression": "`previous_value`"
+                    },
+                    {
+                      "name": "current_value",
+                      "expression": "`current_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_value",
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      },
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": "#BD2B26"
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "previous_value",
+                  "change": {
+                    "type": "percent"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Avg. Investigation Hours"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "485e1ea1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a0d8b62e",
+                  "fields": [
+                    {
+                      "name": "sum(previous_value)",
+                      "expression": "SUM(`previous_value`)"
+                    },
+                    {
+                      "name": "sum(current_value)",
+                      "expression": "SUM(`current_value`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(current_value)",
+                  "style": {
+                    "color": {
+                      "themeColorType": "visualizationColors",
+                      "position": 7
+                    },
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "sum(previous_value)",
+                  "change": {
+                    "type": "percent"
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "title": "Transaction Amount $",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d1cf3b82",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "c6065fd9",
+                  "fields": [
+                    {
+                      "name": "previous_value",
+                      "expression": "`previous_value`"
+                    },
+                    {
+                      "name": "current_value",
+                      "expression": "`current_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_value",
+                  "style": {
+                    "color": {
+                      "themeColorType": "visualizationColors",
+                      "position": 1
+                    },
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": {
+                          "themeColorType": "visualizationColors",
+                          "position": 14
+                        }
+                      },
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "previous_value",
+                  "change": {
+                    "type": "percent"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Upcoming Deadlines"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "4f53e0b5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "6b6f4386",
+                  "fields": [
+                    {
+                      "name": "previous_value",
+                      "expression": "`previous_value`"
+                    },
+                    {
+                      "name": "current_value",
+                      "expression": "`current_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_value",
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": "#BD2B26"
+                      },
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "previous_value",
+                  "change": {
+                    "type": "percent"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Past Due Alerts"
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "alert-resolution-by-due-date",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "due_date",
+                      "expression": "`due_date`"
+                    },
+                    {
+                      "name": "countdistinct(alert_id)",
+                      "expression": "COUNT(DISTINCT `alert_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`resolution` IS NULL"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "due_date",
+                  "axis": {
+                    "labelAngle": 45
+                  },
+                  "displayName": "Due Date",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "2025-12-13",
+                        "2025-12-14",
+                        "2025-12-15",
+                        "2025-12-16",
+                        "2025-12-17",
+                        "2025-12-18",
+                        "2025-12-19",
+                        "2025-12-20",
+                        "2025-12-21",
+                        "2025-12-22",
+                        "2025-12-23",
+                        "2025-12-24",
+                        "2025-12-25",
+                        "2025-12-26",
+                        "2025-12-27",
+                        "2025-12-28",
+                        "2025-12-29",
+                        "2025-12-30",
+                        "2025-12-31",
+                        "2026-01-01",
+                        "2026-01-02",
+                        "2026-01-03",
+                        "2026-01-04",
+                        "2026-01-05",
+                        "2026-01-06",
+                        "2026-01-07",
+                        "2026-01-08",
+                        "2026-01-09",
+                        "2026-01-10",
+                        "2026-01-11",
+                        "2026-01-12",
+                        "2026-01-13",
+                        "2026-01-14",
+                        "2026-01-15",
+                        "2026-01-16",
+                        "2026-01-17",
+                        "2026-01-18",
+                        "2026-01-19",
+                        "2026-01-20",
+                        "2026-01-21",
+                        "2026-01-22",
+                        "2026-01-23",
+                        "2026-01-24",
+                        "2026-01-25",
+                        "2026-01-26",
+                        "2026-01-27",
+                        "2026-01-28",
+                        "2026-01-29",
+                        "2026-01-30",
+                        "2026-01-31",
+                        "2026-02-01",
+                        "2026-02-02",
+                        "2026-02-03",
+                        "2026-02-04",
+                        "2026-02-05",
+                        "2026-02-06"
+                      ]
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "countdistinct(alert_id)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "axis": {
+                    "title": "Number of Alerts"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Outstanding Volume of Alerts"
+              },
+              "mark": {
+                "colors": [
+                  "#88CDCD",
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 2
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 11
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 12
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 13
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 14
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 15
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 16
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 17
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 18
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 19
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 20
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 21
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 22
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "20b63b57",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "bbea6181",
+                  "fields": [
+                    {
+                      "name": "previous_value",
+                      "expression": "`previous_value`"
+                    },
+                    {
+                      "name": "current_value",
+                      "expression": "`current_value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "current_value",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    },
+                    "significantFigures": {
+                      "type": "all"
+                    }
+                  },
+                  "style": {
+                    "rules": [
+                      {
+                        "condition": {
+                          "operator": ">="
+                        },
+                        "color": "#BD2B26"
+                      },
+                      {
+                        "condition": {
+                          "operator": "<="
+                        },
+                        "color": "#00A972"
+                      }
+                    ]
+                  }
+                },
+                "target": {
+                  "fieldName": "previous_value",
+                  "change": {
+                    "type": "percent"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    },
+                    "significantFigures": {
+                      "type": "exact",
+                      "figures": 3
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "False Positive Rate"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "4e83f26e",
+      "displayName": "Team Performance",
+      "layout": [
+        {
+          "widget": {
+            "name": "alerts-by-team",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "scenario_name",
+                      "expression": "`scenario_name`"
+                    },
+                    {
+                      "name": "count(alert_id)",
+                      "expression": "COUNT(`alert_id`)"
+                    },
+                    {
+                      "name": "team_name",
+                      "expression": "`team_name`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "count(alert_id)",
+                  "axis": {
+                    "title": "Number of Alerts"
+                  },
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "scale": {
+                    "type": "quantitative",
+                    "reverse": false
+                  }
+                },
+                "y": {
+                  "fieldName": "team_name",
+                  "axis": {
+                    "title": "Team"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "scenario_name",
+                  "legend": {
+                    "title": "Scenarios",
+                    "position": "bottom"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "Beneficiary Mismatch",
+                        "color": "#B58A90"
+                      },
+                      {
+                        "value": "Cash Structuring Detection",
+                        "color": "#97A7B3"
+                      },
+                      {
+                        "value": "Dormant Account Reactivation",
+                        "color": "#7E7F9A"
+                      },
+                      {
+                        "value": "High-Risk Geography Transfer",
+                        "color": "#EFB988"
+                      },
+                      {
+                        "value": "PEP/Sanctions Alert",
+                        "color": "#AB4057"
+                      },
+                      {
+                        "value": "Rapid Fund Movement",
+                        "color": "#EB9486"
+                      },
+                      {
+                        "value": "Related Account Movement",
+                        "color": "#F3DE8A"
+                      },
+                      {
+                        "value": "Round Dollar Pattern",
+                        "color": "#CAE7B9"
+                      },
+                      {
+                        "value": "Third-Party Deposit Pattern",
+                        "color": "#C4CCD6"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Alerts by Team and Scenario",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "average-investigation-time-by-team",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fcaf3fed",
+                  "fields": [
+                    {
+                      "name": "team_name",
+                      "expression": "`team_name`"
+                    },
+                    {
+                      "name": "sum(case_id)",
+                      "expression": "SUM(`case_id`)"
+                    },
+                    {
+                      "name": "avg(investigation_time_hours)",
+                      "expression": "AVG(`investigation_time_hours`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "team_name",
+                  "axis": {
+                    "title": "Team",
+                    "labelAngle": 45
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "position": "bottom"
+                  }
+                },
+                "label": {
+                  "show": true
+                },
+                "y": {
+                  "primary": {
+                    "fields": [
+                      {
+                        "fieldName": "sum(case_id)",
+                        "displayName": "Number of cases"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Number of Cases"
+                    }
+                  },
+                  "secondary": {
+                    "fields": [
+                      {
+                        "fieldName": "avg(investigation_time_hours)",
+                        "displayName": "Avg Investigation Time (hrs)"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
+                    },
+                    "axis": {
+                      "hideTitle": false
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Cases and Avg. Investigation hours by Team",
+                "showTitle": true
+              },
+              "mark": {
+                "layout": "stack",
+                "colors": [
+                  "#88CDCD",
+                  "#CD4631",
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 11
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 12
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 13
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 14
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 15
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 16
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 17
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 18
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 19
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 20
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 21
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 22
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 4,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "e2227c92",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "53e02597",
+                  "fields": [
+                    {
+                      "name": "team_name",
+                      "expression": "`team_name`"
+                    },
+                    {
+                      "name": "due_date",
+                      "expression": "`due_date`"
+                    },
+                    {
+                      "name": "countdistinct(alert_id)",
+                      "expression": "COUNT(DISTINCT `alert_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`resolution` IS NULL"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "title": "Alerts by Due Date"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "due_date",
+                  "axis": {
+                    "title": "Due Date",
+                    "labelAngle": 45,
+                    "hideTitle": false
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "countdistinct(alert_id)",
+                  "axis": {
+                    "title": "Number of cases"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "team_name",
+                  "legend": {
+                    "position": "bottom",
+                    "title": "Team"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    },
+                    "mappings": [
+                      {
+                        "value": "Enhanced Due Diligence (EDD)",
+                        "color": "#CD4631"
+                      },
+                      {
+                        "value": "Fraud Investigations",
+                        "color": "#DEA47E"
+                      },
+                      {
+                        "value": "Sanctions & Watchlist Screening",
+                        "color": "#7F4A2C"
+                      },
+                      {
+                        "value": "AML Transaction Monitoring",
+                        "color": "#3D7A8A"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "fc4abc73",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "fcaf3fed",
+                  "fields": [
+                    {
+                      "name": "case_status",
+                      "expression": "`case_status`"
+                    },
+                    {
+                      "name": "assigned_analyst",
+                      "expression": "`assigned_analyst`"
+                    },
+                    {
+                      "name": "count(case_id)",
+                      "expression": "COUNT(`case_id`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`case_status` IN ('escalated','open','pending_review')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "assigned_analyst",
+                  "axis": {
+                    "title": "Analyst Name"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "y-reversed"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "count(case_id)",
+                  "displayName": "Number of Cases",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "case_status",
+                  "legend": {
+                    "position": "bottom",
+                    "title": "Case Status"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {
+                        "value": "escalated",
+                        "color": "#730D21"
+                      },
+                      {
+                        "value": "open",
+                        "color": {
+                          "themeColorType": "selectionColor"
+                        }
+                      },
+                      {
+                        "value": "pending_review",
+                        "color": "#FFCC66"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Case Volume per Analyst",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "24b97b29",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "5a7750e3",
+                  "fields": [
+                    {
+                      "name": "case_type_full",
+                      "expression": "`case_type_full`"
+                    },
+                    {
+                      "name": "team_name",
+                      "expression": "`team_name`"
+                    },
+                    {
+                      "name": "avg(avg_investigation_time_hours)",
+                      "expression": "AVG(`avg_investigation_time_hours`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "team_name",
+                  "axis": {
+                    "labelAngle": 0,
+                    "title": "Team"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "avg(avg_investigation_time_hours)",
+                  "axis": {
+                    "title": "Avg Investigation Time (hrs)"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "case_type_full",
+                  "legend": {
+                    "position": "bottom",
+                    "title": "Case Type"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    },
+                    "mappings": [
+                      {
+                        "value": "Beneficiary Mismatch",
+                        "color": "#B58A90"
+                      },
+                      {
+                        "value": "Cash Structuring Detection",
+                        "color": "#97A7B3"
+                      },
+                      {
+                        "value": "Dormant Account Reactivation",
+                        "color": "#7E7F9A"
+                      },
+                      {
+                        "value": "High-Risk Geography Transfer",
+                        "color": "#EFB988"
+                      },
+                      {
+                        "value": "PEP/Sanctions Alert",
+                        "color": "#AB4057"
+                      },
+                      {
+                        "value": "Rapid Fund Movement",
+                        "color": "#EB9486"
+                      },
+                      {
+                        "value": "Related Account Movement",
+                        "color": "#F3DE8A"
+                      },
+                      {
+                        "value": "Round Dollar Pattern",
+                        "color": "#CAE7B9"
+                      },
+                      {
+                        "value": "Third-Party Deposit Pattern",
+                        "color": "#C4CCD6"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Investigation Time by Team and Case Type",
+                "showTitle": true
+              },
+              "mark": {
+                "layout": "stack"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 13,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "8015c721",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "8b55ffeb",
+                  "fields": [
+                    {
+                      "name": "disposition",
+                      "expression": "`disposition`"
+                    },
+                    {
+                      "name": "sum(cases)",
+                      "expression": "SUM(`cases`)"
+                    },
+                    {
+                      "name": "avg(avg_investigation_time_hours)",
+                      "expression": "AVG(`avg_investigation_time_hours`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "combo",
+              "encodings": {
+                "x": {
+                  "fieldName": "disposition",
+                  "axis": {
+                    "title": "Team",
+                    "labelAngle": 0
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "position": "bottom"
+                  }
+                },
+                "label": {
+                  "show": true
+                },
+                "y": {
+                  "primary": {
+                    "fields": [
+                      {
+                        "fieldName": "sum(cases)",
+                        "displayName": "Number of cases"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "axis": {
+                      "title": "Number of Cases"
+                    }
+                  },
+                  "secondary": {
+                    "fields": [
+                      {
+                        "fieldName": "avg(avg_investigation_time_hours)",
+                        "displayName": "Avg Investigation Time (hrs)"
+                      }
+                    ],
+                    "scale": {
+                      "type": "quantitative"
+                    },
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "compact",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 2
+                      }
+                    },
+                    "axis": {
+                      "hideTitle": false
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Cases and Avg. Investigation hours by Team",
+                "showTitle": true
+              },
+              "mark": {
+                "layout": "stack",
+                "colors": [
+                  "#88CDCD",
+                  "#CD4631",
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 3
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 4
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 5
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 6
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 7
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 8
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 9
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 10
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 11
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 12
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 13
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 14
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 15
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 16
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 17
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 18
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 19
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 20
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 21
+                  },
+                  {
+                    "themeColorType": "visualizationColors",
+                    "position": 22
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 20,
+            "width": 2,
+            "height": 7
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#F6FAFB",
+        "dark": "#1B1F23"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#2A2F35"
+      },
+      "widgetBorderColor": {
+        "light": "#D7E1E9",
+        "dark": "#3C444C"
+      },
+      "fontColor": {
+        "light": "#374151",
+        "dark": "#E4E9EE"
+      },
+      "selectionColor": {
+        "light": "#5FA8D3",
+        "dark": "#5FA8D3"
+      },
+      "visualizationColors": [
+        "#97A7B3",
+        "#3D7A8A",
+        "#F3DE8A",
+        "#7F4A2C",
+        "#730D21",
+        "#6D8FA6",
+        "#97A7B3",
+        "#D6C4C8",
+        "#CD4631",
+        "#A31621",
+        "#AB4057",
+        "#EFB988",
+        "#EB9486",
+        "#7E7F9A",
+        "#EFB988",
+        "#CAE7B9",
+        "#B58A90",
+        "#C4CCD6",
+        "#EFB988",
+        "#F3DE8A",
+        "#AB4057",
+        "#7F4A2C"
+      ],
+      "widgetHeaderAlignment": "CENTER"
+    },
+    "genieSpace": {
+      "isEnabled": true,
+      "enablementMode": "ENABLED"
+    },
+    "applyModeEnabled": false
+  }
+}

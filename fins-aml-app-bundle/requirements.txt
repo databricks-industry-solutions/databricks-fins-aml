@@ -1,0 +1,17 @@
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+databricks-sql-connector>=3.0.0
+databricks-sdk>=0.20.0
+databricks-vectorsearch>=0.40
+httpx>=0.25.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+aiofiles>=23.2.0
+reportlab>=4.0.0
+# openai SDK is used as a client to the Databricks AI Gateway (OpenAI-compatible),
+# imported lazily inside semantic_graph.py for the query-rewrite + summary calls.
+openai>=1.0
+# asyncpg drives the optional Lakebase Postgres backend (USE_LAKEBASE=true).
+# Apache-2.0 licensed, async-native — preferred over psycopg here both for
+# the license and because the FastAPI handlers are coroutine-based.
+asyncpg>=0.29.0

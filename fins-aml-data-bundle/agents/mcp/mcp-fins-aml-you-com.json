@@ -1,0 +1,18 @@
+{
+  "connection": {
+    "comment": "MCP connection for You.com MCP: The #1 AI Web Search API",
+    "connection_type": "HTTP",
+    "credential_type": "BEARER_TOKEN",
+    "options": {
+      "auth_scheme": "bearer",
+      "base_path": "/mcp",
+      "host": "https://api.you.com",
+      "is_mcp_connection": "true",
+      "port": "443"
+    },
+    "read_only": true
+  },
+  "connection_name": "fins-aml-you-com",
+  "description": "it will search the web for any information it is asked during the AML or people investigations",
+  "name": "mcp-fins-aml-you-com"
+}

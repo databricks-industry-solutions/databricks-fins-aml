@@ -1,27 +1,59 @@
-# Databricks Asset Bundle files
-.databricks/
-
-# IDE files
+# OS / editor
+.DS_Store
+Thumbs.db
 .vscode/
 .idea/
 *.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db
 
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
-dist/
-build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.tox/
+htmlcov/
 
-# Jupyter Notebook checkpoints
-.ipynb_checkpoints/
+# Virtual environments
+.venv/
+venv/
+env/
+.python-version
 
-# Environment files
+# Secrets / local env
 .env
-.env.local 
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+.databrickscfg
+
+# Databricks bundle state
+.databricks/
+.bundle/
+
+# Node / frontend builds
+node_modules/
+frontend/build/static/.cache/
+*.log
+
+# Generated artifacts
+**/SherlockAML_ExecDash_Processed.lvdash.json
+**/agents/_generated/
+
+# Test/probe junk
+_stashed_*/
+_probe_*/
+=
+
+# Personal AI session notes (not for public repo)
+CLAUDE.md
+
+# Local-only bundle overrides (workspace IDs, endpoints, dashboards).
+# Pattern: a sibling *.local.yml next to any databricks.yml in the tree.
+databricks.local.yml
+**/databricks.local.yml

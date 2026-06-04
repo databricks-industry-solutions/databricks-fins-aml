@@ -1,0 +1,227 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 750" width="1200" height="750">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="750" fill="#f8fafc"/>
+  
+  <!-- Title -->
+  <text x="600" y="35" font-family="system-ui, sans-serif" font-size="24" font-weight="700" text-anchor="middle" fill="#0f172a">SherlockAML - Entity Relationship Diagram</text>
+  
+  <!-- Section: Core Entities -->
+  <rect x="30" y="55" width="760" height="290" rx="12" fill="#eff6ff" stroke="#bfdbfe" stroke-width="2"/>
+  <text x="50" y="80" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#1e40af">CORE ENTITIES</text>
+  
+  <!-- CUSTOMERS table -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="100" width="180" height="160" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="50" y="100" width="180" height="32" rx="8" fill="#3b82f6"/>
+    <text x="140" y="122" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">CUSTOMERS</text>
+    <text x="60" y="150" font-family="monospace" font-size="11" fill="#0f172a">customer_id (PK)</text>
+    <text x="60" y="168" font-family="monospace" font-size="11" fill="#64748b">customer_type</text>
+    <text x="60" y="186" font-family="monospace" font-size="11" fill="#64748b">risk_rating</text>
+    <text x="60" y="204" font-family="monospace" font-size="11" fill="#64748b">risk_score</text>
+    <text x="60" y="222" font-family="monospace" font-size="11" fill="#64748b">pep_flag</text>
+    <text x="60" y="240" font-family="monospace" font-size="11" fill="#64748b">kyc_status</text>
+  </g>
+  
+  <!-- ACCOUNTS table -->
+  <g filter="url(#shadow)">
+    <rect x="310" y="100" width="180" height="140" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="310" y="100" width="180" height="32" rx="8" fill="#3b82f6"/>
+    <text x="400" y="122" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">ACCOUNTS</text>
+    <text x="320" y="150" font-family="monospace" font-size="11" fill="#0f172a">account_id (PK)</text>
+    <text x="320" y="168" font-family="monospace" font-size="11" fill="#dc2626">customer_id (FK)</text>
+    <text x="320" y="186" font-family="monospace" font-size="11" fill="#64748b">account_type</text>
+    <text x="320" y="204" font-family="monospace" font-size="11" fill="#64748b">status</text>
+    <text x="320" y="222" font-family="monospace" font-size="11" fill="#64748b">balance</text>
+  </g>
+  
+  <!-- TRANSACTIONS table -->
+  <g filter="url(#shadow)">
+    <rect x="570" y="100" width="200" height="180" rx="8" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+    <rect x="570" y="100" width="200" height="32" rx="8" fill="#3b82f6"/>
+    <text x="670" y="122" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">TRANSACTIONS</text>
+    <text x="580" y="150" font-family="monospace" font-size="11" fill="#0f172a">transaction_id (PK)</text>
+    <text x="580" y="168" font-family="monospace" font-size="11" fill="#dc2626">account_id (FK)</text>
+    <text x="580" y="186" font-family="monospace" font-size="11" fill="#dc2626">customer_id (FK)</text>
+    <text x="580" y="204" font-family="monospace" font-size="11" fill="#64748b">amount</text>
+    <text x="580" y="222" font-family="monospace" font-size="11" fill="#64748b">transaction_type</text>
+    <text x="580" y="240" font-family="monospace" font-size="11" fill="#64748b">counterparty_*</text>
+    <text x="580" y="258" font-family="monospace" font-size="11" fill="#64748b">memo</text>
+  </g>
+  
+  <!-- Arrows: Core entities -->
+  <line x1="230" y1="170" x2="305" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="267" y="162" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:N</text>
+  
+  <line x1="490" y1="170" x2="565" y2="170" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="527" y="162" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:N</text>
+  
+  <!-- Section: Case Management -->
+  <rect x="30" y="360" width="760" height="195" rx="12" fill="#fef3c7" stroke="#fcd34d" stroke-width="2"/>
+  <text x="50" y="385" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#92400e">CASE MANAGEMENT</text>
+  
+  <!-- ALERTS table -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="405" width="185" height="140" rx="8" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+    <rect x="50" y="405" width="185" height="32" rx="8" fill="#f59e0b"/>
+    <text x="142" y="427" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">ALERTS</text>
+    <text x="60" y="455" font-family="monospace" font-size="11" fill="#0f172a">alert_id (PK)</text>
+    <text x="60" y="473" font-family="monospace" font-size="11" fill="#dc2626">customer_id (FK)</text>
+    <text x="60" y="491" font-family="monospace" font-size="11" fill="#64748b">scenario_code</text>
+    <text x="60" y="509" font-family="monospace" font-size="11" fill="#64748b">team_name</text>
+    <text x="60" y="527" font-family="monospace" font-size="11" fill="#7c3aed">related_transactions[]</text>
+  </g>
+  
+  <!-- CASES table -->
+  <g filter="url(#shadow)">
+    <rect x="310" y="405" width="185" height="158" rx="8" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+    <rect x="310" y="405" width="185" height="32" rx="8" fill="#f59e0b"/>
+    <text x="402" y="427" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">CASES</text>
+    <text x="320" y="455" font-family="monospace" font-size="11" fill="#0f172a">case_id (PK)</text>
+    <text x="320" y="473" font-family="monospace" font-size="11" fill="#dc2626">alert_id (FK)</text>
+    <text x="320" y="491" font-family="monospace" font-size="11" fill="#64748b">case_status</text>
+    <text x="320" y="509" font-family="monospace" font-size="11" fill="#64748b">team_name</text>
+    <text x="320" y="527" font-family="monospace" font-size="11" fill="#64748b">assigned_analyst</text>
+    <text x="320" y="545" font-family="monospace" font-size="11" fill="#7c3aed">evidence_transaction_ids[]</text>
+  </g>
+  
+  <!-- SAR_FILINGS table -->
+  <g filter="url(#shadow)">
+    <rect x="570" y="405" width="185" height="140" rx="8" fill="#ffffff" stroke="#f59e0b" stroke-width="2"/>
+    <rect x="570" y="405" width="185" height="32" rx="8" fill="#f59e0b"/>
+    <text x="662" y="427" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">SAR_FILINGS</text>
+    <text x="580" y="455" font-family="monospace" font-size="11" fill="#0f172a">sar_id (PK)</text>
+    <text x="580" y="473" font-family="monospace" font-size="11" fill="#dc2626">case_id (FK)</text>
+    <text x="580" y="491" font-family="monospace" font-size="11" fill="#dc2626">customer_id (FK)</text>
+    <text x="580" y="509" font-family="monospace" font-size="11" fill="#64748b">fincen_dcn</text>
+    <text x="580" y="527" font-family="monospace" font-size="11" fill="#64748b">amount_involved</text>
+  </g>
+  
+  <!-- Arrows: Case management -->
+  <line x1="235" y1="465" x2="305" y2="465" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="270" y="457" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:1</text>
+  
+  <line x1="495" y1="465" x2="565" y2="465" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="530" y="457" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:N</text>
+  
+  <!-- Arrow from CUSTOMERS to ALERTS -->
+  <path d="M 140 265 L 140 400" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="150" y="335" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:N</text>
+  
+  <!-- NEW: Arrow from ALERTS.related_transactions to TRANSACTIONS (dashed for array relationship) -->
+  <path d="M 142 405 L 142 320 L 570 320 L 570 285" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-orange)"/>
+  <text x="280" y="312" font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="#f59e0b">N:N (related_transactions[])</text>
+  
+  <!-- NEW: Arrow from CASES.evidence_transaction_ids to TRANSACTIONS (dashed for array relationship) -->
+  <path d="M 402 405 L 402 340 L 670 340 L 670 285" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-orange)"/>
+  <text x="500" y="332" font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="#f59e0b">N:N (evidence_transaction_ids[])</text>
+  
+  <!-- Section: Screening -->
+  <rect x="810" y="55" width="360" height="200" rx="12" fill="#fce7f3" stroke="#f9a8d4" stroke-width="2"/>
+  <text x="830" y="80" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#9d174d">SCREENING</text>
+  
+  <!-- WATCHLISTS table -->
+  <g filter="url(#shadow)">
+    <rect x="830" y="100" width="150" height="110" rx="8" fill="#ffffff" stroke="#ec4899" stroke-width="2"/>
+    <rect x="830" y="100" width="150" height="32" rx="8" fill="#ec4899"/>
+    <text x="905" y="122" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">WATCHLISTS</text>
+    <text x="840" y="150" font-family="monospace" font-size="11" fill="#0f172a">list_id (PK)</text>
+    <text x="840" y="168" font-family="monospace" font-size="11" fill="#64748b">list_type</text>
+    <text x="840" y="186" font-family="monospace" font-size="11" fill="#64748b">entity_name</text>
+  </g>
+  
+  <!-- WATCHLIST_SCREENING table -->
+  <g filter="url(#shadow)">
+    <rect x="1010" y="100" width="150" height="130" rx="8" fill="#ffffff" stroke="#ec4899" stroke-width="2"/>
+    <rect x="1010" y="100" width="150" height="32" rx="8" fill="#ec4899"/>
+    <text x="1085" y="122" font-family="system-ui, sans-serif" font-size="12" font-weight="600" text-anchor="middle" fill="#ffffff">WATCHLIST_SCREENING</text>
+    <text x="1020" y="150" font-family="monospace" font-size="11" fill="#0f172a">screening_id (PK)</text>
+    <text x="1020" y="168" font-family="monospace" font-size="11" fill="#dc2626">list_id (FK)</text>
+    <text x="1020" y="186" font-family="monospace" font-size="11" fill="#dc2626">customer_id (FK)</text>
+    <text x="1020" y="204" font-family="monospace" font-size="11" fill="#64748b">match_score</text>
+  </g>
+  
+  <!-- Arrow: Watchlist -->
+  <line x1="980" y1="155" x2="1005" y2="155" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="992" y="147" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">1:N</text>
+  
+  <!-- Section: Graph Model -->
+  <rect x="810" y="280" width="360" height="240" rx="12" fill="#ecfdf5" stroke="#6ee7b7" stroke-width="2"/>
+  <text x="830" y="305" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#065f46">GRAPH MODEL</text>
+  
+  <!-- GRAPH_NODES table -->
+  <g filter="url(#shadow)">
+    <rect x="830" y="325" width="150" height="130" rx="8" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+    <rect x="830" y="325" width="150" height="32" rx="8" fill="#10b981"/>
+    <text x="905" y="347" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">GRAPH_NODES</text>
+    <text x="840" y="375" font-family="monospace" font-size="11" fill="#0f172a">node_id (PK)</text>
+    <text x="840" y="393" font-family="monospace" font-size="11" fill="#0f172a">node_type (PK)</text>
+    <text x="840" y="411" font-family="monospace" font-size="11" fill="#64748b">node_label</text>
+    <text x="840" y="429" font-family="monospace" font-size="11" fill="#64748b">risk_score</text>
+  </g>
+  
+  <!-- GRAPH_EDGES table -->
+  <g filter="url(#shadow)">
+    <rect x="1010" y="325" width="150" height="150" rx="8" fill="#ffffff" stroke="#10b981" stroke-width="2"/>
+    <rect x="1010" y="325" width="150" height="32" rx="8" fill="#10b981"/>
+    <text x="1085" y="347" font-family="system-ui, sans-serif" font-size="13" font-weight="600" text-anchor="middle" fill="#ffffff">GRAPH_EDGES</text>
+    <text x="1020" y="375" font-family="monospace" font-size="11" fill="#dc2626">source_node_id</text>
+    <text x="1020" y="393" font-family="monospace" font-size="11" fill="#dc2626">source_node_type</text>
+    <text x="1020" y="411" font-family="monospace" font-size="11" fill="#dc2626">target_node_id</text>
+    <text x="1020" y="429" font-family="monospace" font-size="11" fill="#dc2626">target_node_type</text>
+    <text x="1020" y="447" font-family="monospace" font-size="11" fill="#64748b">edge_type</text>
+  </g>
+  
+  <!-- Arrow: Graph -->
+  <line x1="980" y1="390" x2="1005" y2="390" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <line x1="1005" y1="390" x2="980" y2="390" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="992" y="382" font-family="system-ui, sans-serif" font-size="10" fill="#64748b">N:N</text>
+  
+  <!-- Legend -->
+  <rect x="30" y="575" width="1140" height="160" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
+  <text x="50" y="600" font-family="system-ui, sans-serif" font-size="14" font-weight="600" fill="#0f172a">LEGEND</text>
+  
+  <rect x="50" y="620" width="16" height="16" fill="#3b82f6" rx="3"/>
+  <text x="75" y="633" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Core Entities</text>
+  
+  <rect x="180" y="620" width="16" height="16" fill="#f59e0b" rx="3"/>
+  <text x="205" y="633" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Case Management</text>
+  
+  <rect x="350" y="620" width="16" height="16" fill="#ec4899" rx="3"/>
+  <text x="375" y="633" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Screening</text>
+  
+  <rect x="470" y="620" width="16" height="16" fill="#10b981" rx="3"/>
+  <text x="495" y="633" font-family="system-ui, sans-serif" font-size="12" fill="#64748b">Graph Model</text>
+  
+  <text x="50" y="660" font-family="monospace" font-size="11" fill="#0f172a">column_name (PK)</text>
+  <text x="180" y="660" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">= Primary Key</text>
+  
+  <text x="50" y="685" font-family="monospace" font-size="11" fill="#dc2626">column_name (FK)</text>
+  <text x="180" y="685" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">= Foreign Key</text>
+  
+  <text x="50" y="710" font-family="monospace" font-size="11" fill="#7c3aed">column_name[]</text>
+  <text x="180" y="710" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">= Array (Many-to-Many link)</text>
+  
+  <line x1="350" y1="655" x2="420" y2="655" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <text x="430" y="660" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">= Standard FK relationship</text>
+  
+  <line x1="350" y1="685" x2="420" y2="685" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrowhead-orange)"/>
+  <text x="430" y="690" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">= Array-based relationship (N:N)</text>
+  
+  <text x="700" y="660" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Target Schema:</text>
+  <text x="790" y="660" font-family="monospace" font-size="11" fill="#0f172a">fins_aml.data_generation</text>
+  
+  <text x="700" y="685" font-family="system-ui, sans-serif" font-size="11" fill="#64748b">Notebooks:</text>
+  <text x="770" y="685" font-family="monospace" font-size="11" fill="#0f172a">01_data_gen → 02_watchlist → 03_graph → 04_knowledge_base</text>
+</svg>

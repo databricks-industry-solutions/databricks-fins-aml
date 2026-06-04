@@ -1,0 +1,17 @@
+{
+  "_source_endpoint": "ka-e2ca2453-endpoint",
+  "_source_tile_id": "e2ca2453-b95b-4e53-984c-47a9674e8ea6",
+  "description": "Answer questions about the contents of the adverse media reported",
+  "instructions": "",
+  "knowledge_sources": [
+    {
+      "description": "contains files from third party sources that provide media reportings about certain customers/persons of interest",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/adverse_media/"
+      },
+      "name": "adverse_media",
+      "type": "files"
+    }
+  ],
+  "name": "FIN-AML-media"
+}

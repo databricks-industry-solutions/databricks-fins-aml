@@ -1,0 +1,28 @@
+{
+  "data_room": {
+    "created_timestamp": 1776221748943,
+    "description": "Executive view for AML alert management - alerts, accounts, cases, customers, transactions, and watchlist screening. Migrated from e2-demo-west.",
+    "display_name": "AML Alert360 Executive View",
+    "folder_node_internal_name": "tree/785619930347749",
+    "id": "01f138769b621c3396078fa205bd8292",
+    "last_updated_timestamp": 1776221820851,
+    "run_as_type": "VIEWER",
+    "space_id": "01f138769b621c3396078fa205bd8292",
+    "suggestion_description": "This space provides an executive overview of AML alert management, enabling analysis of alerts, accounts, cases, customers, transactions, and watchlist screenings.\n\n**Capabilities:**\n- Track and analyze AML alerts by scenario, status, analyst assignment, and resolution outcomes\n- Monitor open and closed cases, investigation times, SAR requirements, and disposition reasons\n- Review customer risk profiles, PEP status, KYC information, and related accounts\n- Evaluate account activity, balances, transaction patterns, and high-risk behaviors\n- Assess watchlist screening results, match scores, dispositions, and connections to customers\n- Identify alerts or cases by team, priority, and SLA status for operational insight\n\n**Limitations:**\n- Does not provide real-time data or event monitoring capabilities\n- No access to external regulatory lists or up-to-date sanctions information beyond internal watchlist screening\n- Lacks direct integration for workflow or document management (e.g., uploading evidence)",
+    "suggestion_description_created_timestamp": 1776221820848,
+    "suggestion_description_status": "SUGGESTION_PROPOSED",
+    "table_identifiers": [
+      "fins_aml.data_generation.accounts",
+      "fins_aml.data_generation.alerts",
+      "fins_aml.data_generation.cases",
+      "fins_aml.data_generation.customers",
+      "fins_aml.data_generation.transactions",
+      "fins_aml.data_generation.watchlist_screening"
+    ],
+    "user_id": 7415385783067043,
+    "warehouse_id": "d5080ca821238922"
+  },
+  "description": "Executive view for AML alert management - alerts, accounts, cases, customers, transactions, and watchlist screening. Migrated from e2-demo-west.",
+  "name": "agent-aml-alert360-executive-view",
+  "space_id": "01f138769b621c3396078fa205bd8292"
+}

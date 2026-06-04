@@ -1,0 +1,14 @@
+# Stashed features (local only, not pushed to repo or deployed)
+_stashed_semantic_graph/
+
+# Python
+__pycache__/
+*.pyc
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Databricks
+.databricks/

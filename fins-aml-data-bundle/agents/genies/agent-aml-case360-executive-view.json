@@ -1,0 +1,26 @@
+{
+  "data_room": {
+    "created_timestamp": 1776221742453,
+    "description": "Executive view for AML case management - cases, customers, SAR filings, and audit logs. Migrated from e2-demo-west.",
+    "display_name": "AML Case360 Executive View",
+    "folder_node_internal_name": "tree/785619930347748",
+    "id": "01f138769784181b9d67101dc76db3e2",
+    "last_updated_timestamp": 1776221849052,
+    "run_as_type": "VIEWER",
+    "space_id": "01f138769784181b9d67101dc76db3e2",
+    "suggestion_description": "This space provides an executive overview of AML (Anti-Money Laundering) case management, enabling analysis across cases, customers, SAR filings, and audit logs.\n\n**Capabilities:**\n- Track case volumes, statuses, types, and investigation times across teams, analysts, and alert scenarios\n- Analyze customer risk profiles, PEP (politically exposed person) status, and KYC statuses linked to cases\n- Measure SAR (Suspicious Activity Report) filing rates, amounts, and related activity details\n- Audit case management actions and workflow history for compliance review\n- Calculate key operational metrics such as false positive rate, average investigation time, and case closure trends\n\n**Limitations:**\n- Does not include transaction-level details or specific alert-generation logic\n- Cannot assess effectiveness of specific AML rules or scenario models beyond case outcomes\n- No integration with external data sources or real-time monitoring analytics",
+    "suggestion_description_created_timestamp": 1776221849050,
+    "suggestion_description_status": "SUGGESTION_PROPOSED",
+    "table_identifiers": [
+      "fins_aml.data_generation.case_audit_log",
+      "fins_aml.data_generation.cases",
+      "fins_aml.data_generation.customers",
+      "fins_aml.data_generation.sar_filings"
+    ],
+    "user_id": 7415385783067043,
+    "warehouse_id": "d5080ca821238922"
+  },
+  "description": "Executive view for AML case management - cases, customers, SAR filings, and audit logs. Migrated from e2-demo-west.",
+  "name": "agent-aml-case360-executive-view",
+  "space_id": "01f138769784181b9d67101dc76db3e2"
+}

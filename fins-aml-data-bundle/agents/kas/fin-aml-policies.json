@@ -1,0 +1,17 @@
+{
+  "_source_endpoint": "ka-53fbbb04-endpoint",
+  "_source_tile_id": "53fbbb04-061d-41e7-a29c-e55cfaa18c50",
+  "description": "Answer questions about regulations and policies from regulators",
+  "instructions": "",
+  "knowledge_sources": [
+    {
+      "description": "contains documents from regulators and internal bank policies",
+      "files": {
+        "path": "/Volumes/fins_aml/data_generation/knowledge_base/policies_and_regulations/"
+      },
+      "name": "policies",
+      "type": "files"
+    }
+  ],
+  "name": "FIN-AML-policies"
+}

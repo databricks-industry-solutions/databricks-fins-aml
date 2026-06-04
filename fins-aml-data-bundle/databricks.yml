@@ -1,0 +1,155 @@
+bundle:
+  name: fins-aml-data-pipeline
+
+variables:
+  catalog:
+    description: "Unity Catalog name for data tables"
+    # No default - must be provided by user
+  schema:
+    description: "Schema name for data tables"
+    # No default - must be provided by user
+  force_rebuild:
+    description: "Force rebuild of existing tables (true/false)"
+    # No default - must be provided by user
+  warehouse_id:
+    description: "SQL warehouse ID for running queries"
+    # No default - must be provided by user
+  dashboard_id:
+    description: "Lakeview dashboard ID (will be created if not exists)"
+    default: ""
+  notification_email:
+    description: "Email for job failure notifications"
+    default: ""
+  youcom_secret_scope:
+    description: "Databricks secret scope holding the You.com MCP bearer token. Leave empty to skip MCP setup."
+    default: ""
+  youcom_secret_key:
+    description: "Databricks secret key for the You.com MCP bearer token. Leave empty to skip MCP setup."
+    default: ""
+
+targets:
+  dev:
+    mode: development
+    default: true
+    # Workspace determined by user's Databricks CLI profile
+    # Deploy with: databricks bundle deploy --profile <workspace-profile>
+
+  staging:
+    mode: staging
+    # Workspace determined by user's Databricks CLI profile
+
+  production:
+    mode: production
+    # Workspace determined by user's Databricks CLI profile
+
+resources:
+  jobs:
+    aml_data_generation_pipeline:
+      name: "AML Data Generation Pipeline"
+      description: "Sequential execution of AML data generation notebooks"
+
+      tasks:
+        - task_key: process_dashboard_template
+          spark_python_task:
+            python_file: ./process_dashboard_template.py
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--schema"
+              - "${var.schema}"
+              - "--template"
+              - "./SherlockAML_ExecDash_Template.lvdash.json"
+              - "--output"
+              - "./SherlockAML_ExecDash_Processed.lvdash.json"
+          # Use serverless compute
+          environment_key: serverless_environment
+          timeout_seconds: 300  # 5 minutes should be plenty
+
+        - task_key: generate_base_data
+          depends_on:
+            - task_key: process_dashboard_template
+          notebook_task:
+            notebook_path: ./notebooks/01_aml_data_generation.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+              force_rebuild: ${var.force_rebuild}
+          # Use serverless compute instead of job cluster
+          environment_key: serverless_environment
+          timeout_seconds: 3600
+
+        - task_key: watchlist_screening
+          depends_on:
+            - task_key: generate_base_data
+          notebook_task:
+            notebook_path: ./notebooks/02_aml_watchlist_screening.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: serverless_environment
+          timeout_seconds: 1800
+
+        - task_key: graph_model
+          depends_on:
+            - task_key: watchlist_screening
+          notebook_task:
+            notebook_path: ./notebooks/03_aml_graph_model.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: serverless_environment
+          timeout_seconds: 1800
+
+        - task_key: knowledge_base
+          depends_on:
+            - task_key: graph_model
+          notebook_task:
+            notebook_path: ./notebooks/04_aml_knowledge_base.py
+            base_parameters:
+              catalog: ${var.catalog}
+              schema: ${var.schema}
+          environment_key: serverless_environment
+          timeout_seconds: 10800
+
+        - task_key: provision_agents
+          depends_on:
+            - task_key: knowledge_base
+          spark_python_task:
+            python_file: ./provision_agents.py
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--schema"
+              - "${var.schema}"
+              - "--warehouse-id"
+              - "${var.warehouse_id}"
+              - "--mcp-secret-scope"
+              - "${var.youcom_secret_scope}"
+              - "--mcp-secret-key"
+              - "${var.youcom_secret_key}"
+              - "--apply"
+          environment_key: serverless_environment
+          # KA indexing can take 10-20 min per KA; allow 1hr total
+          timeout_seconds: 3600
+
+      # Define serverless environment
+      environments:
+        - environment_key: serverless_environment
+          spec:
+            client: "1"
+            dependencies:
+              - databricks-sdk>=0.20.0
+
+      schedule:
+        # Run monthly on the 1st at 2 AM Pacific Time
+        quartz_cron_expression: "0 0 2 1 * ?"
+        timezone_id: "America/Los_Angeles"
+        pause_status: PAUSED  # Start in paused state, can be activated later
+
+  dashboards:
+    aml_executive_dashboard:
+      display_name: "AML Executive Dashboard"
+      # Uses the processed dashboard file with user-specified catalog/schema
+      file_path: ./SherlockAML_ExecDash_Processed.lvdash.json
+      embed_credentials: true
+      warehouse_id: ${var.warehouse_id}
