@@ -132,6 +132,21 @@ resources:
           # KA indexing can take 10-20 min per KA; allow 3hr total
           timeout_seconds: 10800
 
+        - task_key: provision_graph_index
+          depends_on:
+            - task_key: graph_model
+          spark_python_task:
+            python_file: ./provision_graph_index.py
+            parameters:
+              - "--catalog"
+              - "${var.catalog}"
+              - "--schema"
+              - "${var.schema}"
+              - "--apply"
+          environment_key: serverless_environment
+          # VS endpoint creation + initial index sync can take 10-30 min
+          timeout_seconds: 3600
+
       # Define serverless environment
       environments:
         - environment_key: serverless_environment
@@ -139,6 +154,7 @@ resources:
             client: "1"
             dependencies:
               - databricks-sdk>=0.20.0
+              - databricks-vectorsearch>=0.40
 
       schedule:
         # Run monthly on the 1st at 2 AM Pacific Time
