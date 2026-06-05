@@ -65,7 +65,7 @@ The Databricks Data Intelligence Platform collapses the ten siloed systems into 
 
 SherlockAML is a complete, partner-deployable reference solution:
 
-- **A FastAPI + React investigation app** — three surfaces (Executive Overview, Alert Investigation, Graph Explorer) backed by a Multi-Agent Supervisor over three Knowledge Assistants, two Genie Spaces, and an optional external web-search MCP server.
+- **A FastAPI + React investigation app** — three surfaces (Executive Overview, Alert Investigation, Graph Explorer) backed by a Supervisor Agent over three Knowledge Assistants, two Genie Spaces, and an optional external web-search MCP server.
 - **A self-contained data bundle** — synthetic AML data (customers, transactions, alerts, cases, SAR filings) plus an executive dashboard. Generated fresh on every deploy.
 - **Automated agent provisioning** — the data bundle's pipeline ends by creating the full agent graph in the target workspace, so a partner gets the same investigator surface with no manual UI clicks.
 - **Optional Lakebase backend** — graph queries can be served from a managed Postgres instance for sub-10ms reads when the workload demands it.
@@ -87,7 +87,7 @@ SherlockAML is a complete, partner-deployable reference solution:
 │   ├── notebooks/                      ← 01-04: data gen → screening → graph → KB docs
 │   ├── export_agents.py                ← read-only introspection of the agent graph
 │   ├── provision_agents.py             ← idempotent replay into any target workspace
-│   └── agents/                         ← captured JSON specs (MAS, KAs, Genies, MCP)
+│   └── agents/                         ← captured JSON specs (Supervisor Agent, KAs, Genies, MCP)
 └── legacy/neo4j-integration/           ← reference Neo4j graph backend (not active)
 ```
 
@@ -106,22 +106,22 @@ The repo ships as two Databricks Asset Bundles. Deploy the data bundle first (it
 **Workspace features that must be enabled** (your workspace admin can confirm):
 - Unity Catalog (any new workspace; verify via `databricks catalogs list`)
 - Serverless compute for jobs (the data bundle uses serverless exclusively)
-- Agent Bricks — Knowledge Assistants and Multi-Agent Supervisors must be available in the workspace UI under "Agents"
+- Agent Bricks — Knowledge Assistants and Supervisor Agents must be available in the workspace UI under "Agents"
 - Genie Spaces (visible under "Genie" in the left nav)
 - Vector Search (Knowledge Assistants provision their own VS endpoints automatically; you only need the feature itself enabled)
 - *(Optional, only if you set `USE_LAKEBASE=true`)* Lakebase Autoscaling — verify with `databricks postgres list-projects --profile <your-profile>` returns a result, even if empty
 
 **Workspace permissions for whoever runs the deploy:**
 - CAN_USE on a SQL warehouse
-- CAN_MANAGE on the catalog and schema you'll create
-- Permission to create Knowledge Assistants, Genie Spaces, and Multi-Agent Supervisors
+- CAN_MANAGE on (or ownership of) the catalog and schema you'll create — `deploy.sh` uses this to grant the app's service principal read access to the data
+- Permission to create Knowledge Assistants, Genie Spaces, and Supervisor Agents
 
 **Optional secret:**
 - A You.com API key from [you.com/developer](https://you.com/developer), if you want web-search as a 6th sub-agent
 
 ### 1. Configure your target
 
-Copy the `example` target in `fins-aml-app-bundle/databricks.yml` and fill in the values you already have. **Leave `mas_endpoint_url` and `dashboard_id` as placeholders for now** — they're outputs of step 2 and you'll backfill them in step 3.
+Copy the `example` target in `fins-aml-app-bundle/databricks.yml` and fill in the values you already have. **Leave `mas_endpoint_url`, `mas_endpoint_name`, and `dashboard_id` as placeholders for now** — they're outputs of step 2 and you'll backfill them in step 3. (To keep workspace-specific values out of the repo, you can instead put this target in a gitignored `databricks.local.yml` — it's picked up via the `include: ["*.local.yml"]` glob in `databricks.yml`.)
 
 ```yaml
 targets:
@@ -140,28 +140,31 @@ targets:
 
 ### 2. Deploy and run the data bundle
 
-The data bundle creates everything the app depends on: catalog tables, the synthetic knowledge-base volume, the Lakeview dashboard, and the full agent graph (3 KAs, 2 Genie Spaces, the MAS, and optionally the You.com MCP).
+The data bundle creates everything the app depends on: catalog tables, the synthetic knowledge-base volume, the Lakeview dashboard, and the full agent graph (3 KAs, 2 Genie Spaces, the Supervisor Agent, and optionally the You.com MCP).
 
 ```bash
 cd fins-aml-data-bundle
 
 # (Optional) Set up the You.com MCP secret first if you want web search.
-# Without this, the MAS comes up with 5 sub-agents instead of 6.
+# Without this, the Supervisor Agent comes up with 5 sub-agents instead of 6.
 databricks secrets create-scope youcom --profile <your-profile>
 databricks secrets put-secret youcom api_key --profile <your-profile>
 # Paste your you.com API key when prompted.
 
-# Deploy resource definitions.
-databricks bundle deploy --profile <your-profile> \
+# Deploy. deploy.sh renders the executive dashboard for your catalog/schema
+# (required before `bundle deploy` — the dashboard file is gitignored and
+# generated from the parametrized template), then runs `databricks bundle deploy`.
+# To enable the You.com MCP, prefix with the secret you created above:
+#   YOUCOM_SECRET_SCOPE=youcom YOUCOM_SECRET_KEY=api_key ./deploy.sh ...
+./deploy.sh <your-profile> <your-catalog> <your-schema> <your-warehouse-id> false
+
+# Run the pipeline. This generates data AND provisions the agent graph.
+# (The vars are required again here — they have no defaults.)
+databricks bundle run aml_data_generation_pipeline --profile <your-profile> \
   --var catalog=<your-catalog> \
   --var schema=<your-schema> \
   --var warehouse_id=<your-warehouse-id> \
-  --var force_rebuild=false \
-  --var youcom_secret_scope=youcom \
-  --var youcom_secret_key=api_key
-
-# Run the pipeline. This generates data AND provisions the agent graph.
-databricks bundle run aml_data_generation_pipeline --profile <your-profile>
+  --var force_rebuild=false
 ```
 
 The pipeline runs six tasks in order: `process_dashboard_template → generate_base_data → watchlist_screening → graph_model → knowledge_base → provision_agents`. Expect **60–120 minutes total**; the Knowledge Base notebook (LLM-generated SAR narratives, EDD memos, adverse-media reports) and the final Knowledge Assistant indexing inside `provision_agents` are the two longest steps. When it finishes you'll have:
@@ -169,16 +172,16 @@ The pipeline runs six tasks in order: `process_dashboard_template → generate_b
 - All tables under `<catalog>.<schema>.*`
 - The `knowledge_base` volume populated with synthetic PDFs, SAR narratives, EDD memos, and adverse-media reports
 - The "AML Executive Dashboard" registered in the workspace
-- A working Multi-Agent Supervisor with 3 Knowledge Assistants, 2 Genie Spaces, and (if you set the You.com secret) 1 external MCP server — all ready for the app to call
+- A working Supervisor Agent with 3 Knowledge Assistants, 2 Genie Spaces, and (if you set the You.com secret) 1 external MCP server — all ready for the app to call
 
 If you set up the You.com MCP, the first time anyone uses one of its tools in the Databricks playground, they'll be prompted to approve it. This is a one-time per-workspace action.
 
-### 3. Backfill the MAS endpoint URL and dashboard ID
+### 3. Backfill the Supervisor Agent endpoint and dashboard ID
 
 Read the two values produced by step 2 and update your target in `fins-aml-app-bundle/databricks.yml`.
 
 ```bash
-# The MAS endpoint name (it'll look like mas-xxxxxxxx-endpoint):
+# The Supervisor Agent endpoint name (it'll look like mas-xxxxxxxx-endpoint):
 databricks api get "/api/2.0/tiles?tile_type=MAS" --profile <your-profile> \
   | python3 -c "import json,sys; \
     [print(t['serving_endpoint_name']) for t in json.load(sys.stdin)['tiles'] \
@@ -194,6 +197,7 @@ databricks api get "/api/2.0/lakeview/dashboards" --profile <your-profile> \
 Plug those into the target:
 ```yaml
 mas_endpoint_url: "https://<your-workspace>.cloud.databricks.com/serving-endpoints/<mas-endpoint-name>/invocations"
+mas_endpoint_name: "<mas-endpoint-name>"
 dashboard_id: "<dashboard-id>"
 ```
 
@@ -204,7 +208,7 @@ cd ../fins-aml-app-bundle
 ./deploy.sh my-workspace <your-profile>
 ```
 
-`deploy.sh` validates the bundle, runs `databricks bundle deploy` to register the app resource and upload code, resolves the `${var.xxx}` references in `app.yaml` for your target, uploads the resolved file, and runs `databricks apps deploy`. The first deploy takes a few minutes; subsequent deploys are faster.
+`deploy.sh` runs the whole sequence: validates and runs `databricks bundle deploy` (uploads code **and binds the app's SQL-warehouse + Supervisor Agent serving-endpoint resources** declared in `databricks.yml`), resolves the `${var.xxx}` references in `app.yaml` and uploads the resolved file, **starts the app and waits for it to be RUNNING** (newly created apps come up STOPPED), runs `databricks apps deploy`, and finally **grants the app's service principal read access** (`USE_CATALOG`/`USE_SCHEMA`/`SELECT`/`READ_VOLUME`) on your catalog/schema so it reads real data instead of demo fallback. The first deploy takes a few minutes; subsequent deploys are faster.
 
 The app URL is printed at the end of the deploy. Open it, sign in with your Databricks identity, and you should see the Executive Overview load with the data the bundle generated.
 
@@ -283,7 +287,7 @@ SQL
 
 # 5. Create a Postgres role for the app's service principal so it can connect
 #    via OAuth. Replace <app-sp-client-id> with the client_id from
-#    `databricks apps get the-fins-aml-app --profile $PROFILE`.
+#    `databricks apps get fins-aml-platform --profile $PROFILE`.
 databricks postgres create-role projects/$PROJECT/branches/production \
   --json '{"spec":{"postgres_role":"<app-sp-client-id>","auth_method":"LAKEBASE_OAUTH_V1","identity_type":"SERVICE_PRINCIPAL"}}' \
   --profile $PROFILE
@@ -311,7 +315,7 @@ Verify by loading the Graph Explorer — queries should return in tens of millis
 This repo is meant to be forked, cloned, or vendored. A partner taking this on:
 
 - **Replace the synthetic data**: keep the data bundle structure, swap the generation notebooks for your own data sources. The downstream agent prompts and the app's queries reference the table schemas, not the data content.
-- **Adjust the agent graph**: the MAS, its three KAs, two Genie Spaces, and the MCP connection are all captured as JSON under `fins-aml-data-bundle/agents/`. Edit those files (descriptions, instructions, table/document references) before running `bundle deploy` and you get a different agent graph in the target workspace.
+- **Adjust the agent graph**: the Supervisor Agent, its three KAs, two Genie Spaces, and the MCP connection are all captured as JSON under `fins-aml-data-bundle/agents/`. Edit those files (descriptions, instructions, table/document references) before running `bundle deploy` and you get a different agent graph in the target workspace.
 - **Swap the graph backend**: a Neo4j reference implementation lives in [`legacy/neo4j-integration/`](legacy/neo4j-integration/README.md) for teams who'd prefer a labeled-property graph database over Delta/Lakebase.
 - **Restyle the frontend**: it's a single React file (`frontend/build/index.html`) with inline-styled components — no build pipeline, no bundler. Swap colors and typography directly.
 
@@ -319,7 +323,7 @@ This repo is meant to be forked, cloned, or vendored. A partner taking this on:
 
 ## Architecture (one-line version)
 
-User → React app → FastAPI → (Multi-Agent Supervisor over 3 KAs + 2 Genies + 1 MCP) and/or (Lakebase Postgres for graph reads) → Unity Catalog tables and volumes that the data bundle owns.
+User → React app → FastAPI → (Supervisor Agent over 3 KAs + 2 Genies + 1 MCP) and/or (Lakebase Postgres for graph reads) → Unity Catalog tables and volumes that the data bundle owns.
 
 The agents are stateless; everything reproducible from the bundle.
 
@@ -339,4 +343,4 @@ The agents are stateless; everything reproducible from the bundle.
 Built by the Databricks FSI ProServ + AI Acceleration teams:
 **Emerson Bayuk** · **Kateryna Savchyn** · **Mimi Park** · **Pavithra Rao**
 
-Powered by Databricks Apps, Unity Catalog, Agent Bricks (Knowledge Assistants, Genie Spaces, Multi-Agent Supervisors), Vector Search, AI Gateway, and Lakebase.
+Powered by Databricks Apps, Unity Catalog, Agent Bricks (Knowledge Assistants, Genie Spaces, Supervisor Agents), Vector Search, AI Gateway, and Lakebase.
